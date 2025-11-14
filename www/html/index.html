@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Go Agent SSE Demo</title>
+</head>
+<body>
+    <h1>Agent Streaming Output</h1>
+    <form id="chatForm">
+        <input type="text" id="queryInput" placeholder="輸入您的問題 (試試問天氣)" value="台北今天天氣如何？" size="50">
+        <button type="submit">發送問題</button>
+    </form>
+    <hr>
+    <div id="status" style="color: gray;">等待連接...</div>
+    <div id="output" style="border: 1px solid #ccc; padding: 10px; min-height: 50px; white-space: pre-wrap;"></div>
+    
+    <script>
+        const chatForm = document.getElementById('chatForm');
+        const queryInput = document.getElementById('queryInput');
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+        let eventSource = null;
+
+        function connectAgent(query) {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            // 帶上查詢參數連接後端
+            const url = `/events?user_id=test_user_123&query=${encodeURIComponent(query)}`;
+            eventSource = new EventSource(url);
+
+            statusDiv.textContent = 'Agent 正在連接...';
+            outputDiv.innerHTML = '';
+
+            eventSource.addEventListener('start', (event) => {
+                const data = JSON.parse(event.data);
+                statusDiv.textContent = `Agent 狀態: ${data.status}`;
+            });
+
+            eventSource.addEventListener('message', (event) => {
+                // LLM 文字串流
+                const text = JSON.parse(event.data); // 數據在後端被 Marshal 成 JSON 字串
+                outputDiv.textContent += text;
+            });
+
+            eventSource.addEventListener('tool_call', (event) => {
+                // Agent 呼叫工具
+                const data = JSON.parse(event.data);
+                statusDiv.textContent = `Agent 狀態: 正在執行工具 ${data.tool_name}...`;
+                // 在輸出區域中添加提示
+                outputDiv.innerHTML += `<br><i style="color: darkorange;">[呼叫工具: ${data.tool_name}]</i><br>`;
+            });
+
+            eventSource.addEventListener('end', (event) => {
+                // 串流結束
+                const data = JSON.parse(event.data);
+                statusDiv.textContent = `Agent 狀態: ${data.status}`;
+                eventSource.close();
+            });
+
+            eventSource.addEventListener('error', (event) => {
+                // 錯誤處理
+                const data = JSON.parse(event.data);
+                statusDiv.textContent = `連接錯誤: ${data.message || '未知錯誤'}`;
+                console.error('EventSource Error:', event);
+                if (eventSource) eventSource.close();
+            });
+
+            eventSource.onopen = (e) => {
+                statusDiv.textContent = 'Agent 狀態: 已連接，等待回應...';
+            };
+        }
+
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = queryInput.value.trim();
+            if (query) {
+                connectAgent(query);
+            }
+        });
+    </script>
+</body>
+</html>
