@@ -16,13 +16,6 @@ type LLMChunk struct {
 	// Error    error    // 可選：串流中的錯誤訊息
 }
 
-// LLMProviderClient 介面：一個虛擬的 LLM 客戶端介面，用於抽象化不同的 LLM SDK
-type LLMProviderClient interface {
-	LLMName() string
-   // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
-    StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error)
-}
-
 type InteractionInput struct {
 	UserID string
 	Query  string

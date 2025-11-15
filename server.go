@@ -39,7 +39,7 @@ func main() {
 	sse := NewSSEService()
 	sse.AddRouter(router)
 	// AI
-	chatService := NewInteractionService()  // 服務初始化 (解決 nil pointer dereference)
+	chatService = NewInteractionService()  // 服務初始化 (解決 nil pointer dereference)
     // 註冊工具
     tools := map[string]Tool{
         "get_current_weather": &WeatherTool{},

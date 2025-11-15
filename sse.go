@@ -34,7 +34,7 @@ func (app *SSEService) SseAgentStreamHandler(w http.ResponseWriter, r *http.Requ
 
 	// 確保 chatService 不為 nil
 	if chatService == nil {
-		fmt.Fprintf(w, "event: error\ndata: {\"message\": \"Service not initialized\"}\n\n")
+		fmt.Fprintf(w, "event: error\ndata: {\"message\": \"chat Service not initialized\"}\n\n")
         flusher.Flush()
 		return
 	}
