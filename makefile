@@ -11,7 +11,6 @@ init:
         GO111MODULE=on go mod download
 
 build:
-        clear
         GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -tags netgo \
         -o ${APP}
         chmod +x ${APP}

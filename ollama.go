@@ -4,15 +4,46 @@ import (
 	"fmt"
 	"time"
 	"strings"
+    "net/http"
+    "encoding/json"
 )
 
+// Ollama 相關的配置和狀態
 type Ollama struct {
 	Name string
-	// 這裡可以放置 Ollama 相關的配置和狀態
+    URL  string    // Ollama 服務的基礎 URL，例如 "http://localhost:11434"
 }
 
 func (app *Ollama) LLMName() string { 
 	return app.Name 
+}
+
+// 獲取所有可用模型
+func(app *Ollama) GetModels() ([]Model, error) {
+   // 這樣可以保留 DefaultTransport 內建的撥號逾時、TLS 握手逾時等合理設置
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+   // 如果你需要設置代理或自定義 TLS 配置，在這裡添加
+	// proxyURL, _ := url.Parse("http://your-proxy-server:8080")
+	// transport.Proxy = http.ProxyURL(proxyURL)
+	// transport.TLSHandshakeTimeout = 10 * time.Second // 已經在 DefaultTransport 中預設
+   // 可以根據需要設定其他 Client 參數，例如 CheckRedirect、Timeout 等
+   client := &http.Client{
+      Transport: transport,
+      Timeout: 60 * time.Second, // 整個請求的逾時時間
+   }
+   resp, err := client.Get(app.URL + "/api/tags")
+   if err != nil {
+      return nil, fmt.Errorf("連接到 Ollama 服務失敗: %v", err)
+   }
+   defer resp.Body.Close()
+   if resp.StatusCode != http.StatusOK {
+      return nil, fmt.Errorf("獲取模型列表失敗，狀態碼: %d", resp.StatusCode)
+   }
+   var listResp ModelsWrapper
+   if err := json.NewDecoder(resp.Body).Decode(&listResp); err != nil {
+      return nil, fmt.Errorf("解析回應失敗: %v", err)
+   }
+   return listResp.Models, nil
 }
 
 func (m *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error) {
@@ -34,8 +65,8 @@ func (m *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, 
                 output <- &LLMChunk{Text: text}
                 time.Sleep(time.Millisecond * 30)
             }
-            fmt.Println("--> Mock LLM Client: Simulating a tool call for weather.")
             // 這裡發送 ToolCall Chunk
+            fmt.Println("--> Mock LLM Client: Simulating a tool call for weather.")
             output <- &LLMChunk{
                 ToolCall: &ToolCall{
                     Name: "get_current_weather",

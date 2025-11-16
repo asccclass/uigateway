@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// LLMProviderClient 介面：一個虛擬的 LLM 客戶端介面，用於抽象化不同的 LLM SDK
+type LLMProviderClient interface {
+	LLMName() string
+   // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
+    StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error)
+}
+
 // LLM 服務的客戶端 (例如：*openai.Client, *genai.Client, 或統一的 SDK)
 type CustomChatAgent struct {
 	LLMClient   LLMProviderClient 
@@ -34,10 +41,10 @@ func (app *CustomChatAgent) getAvailableTools() []Tool {
 
 // ProcessStream Agent 核心邏輯
 func (a *CustomChatAgent) ProcessStream(input *InteractionInput, outputChannel chan *StreamChunk) error {
-	defer close(outputChannel)
+   defer close(outputChannel)
 	
-	// 解決 undefined: a.buildInitialPrompt 的方法
-	fullPrompt := fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, input.Query)
+   // 解決 undefined: a.buildInitialPrompt 的方法
+   fullPrompt := fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, input.Query)
    maxIterations := 5
     
    // 1. 傳送開始事件
@@ -52,7 +59,6 @@ func (a *CustomChatAgent) ProcessStream(input *InteractionInput, outputChannel c
             outputChannel <- &StreamChunk{Type: "error", Data: err.Error()}
             return fmt.Errorf("LLM stream error: %w", err)
         }
-
         var toolCall *ToolCall
         var textOutput strings.Builder // 僅用於單輪推理的文字緩衝
 
@@ -60,61 +66,49 @@ func (a *CustomChatAgent) ProcessStream(input *InteractionInput, outputChannel c
             if chunk.Text != "" {
                 textOutput.WriteString(chunk.Text)
                 outputChannel <- &StreamChunk{Type: "message", Data: chunk.Text}
-            }
-            
+            }            
             if chunk.ToolCall != nil {
                 toolCall = chunk.ToolCall
                 break // LLM 決定呼叫工具，中斷文字輸出
             }
         }
-
+        // 處理工具呼叫
         if toolCall != nil {
-            // 處理工具呼叫
-            currentIteration++
-            
-            // 通知前端 Agent 正在呼叫工具
-            outputChannel <- &StreamChunk{
+            currentIteration++            
+            outputChannel <- &StreamChunk{   // 通知前端 Agent 正在呼叫工具
                 Type: "tool_call",
                 Data: map[string]string{"tool_name": toolCall.Name, "status": "executing"},
             }
-            
             // 執行工具
             toolResult, err := a.executeTool(toolCall)
-            if err != nil {
-                // 將工具執行錯誤回報給 LLM
-                toolResult = &ToolResult{Observation: fmt.Sprintf("Tool execution failed: %s", err.Error())}
-            }
-            
+            if err != nil {  // 將工具執行錯誤回報給 LLM                
+               toolResult = &ToolResult{Observation: fmt.Sprintf("Tool execution failed: %s", err.Error())}
+            }            
             // 將工具執行結果追加到 Prompt 中，進行下一輪推理 (Re-prompting)
             toolObservation := fmt.Sprintf("\n\nObservation for tool %s: %s\n\n", toolCall.Name, toolResult.Observation)
             fullPrompt += toolObservation
-            
-            // 繼續迴圈 (進行下一輪 LLM 呼叫)
-            continue
+            continue   // 繼續迴圈 (進行下一輪 LLM 呼叫)
         }
-        // 如果沒有工具呼叫，且有文字輸出，則認為回應完成
-        if textOutput.Len() > 0 {
-            break 
-        }
-        // 達到最大輪次，強制結束
-        if currentIteration == maxIterations-1 {
+        // 如果沒有工具呼叫，且有文字輸出，則認為回應完成 || 達到最大輪次，強制結束
+        if textOutput.Len() > 0  || currentIteration == maxIterations-1 {
             break 
         }
     }
-   // 串流結束
+    // 串流結束
 	outputChannel <- &StreamChunk{
         Type: "end",
         Data: map[string]string{"status": "complete"},
-   }
+    }
 	return nil
 }
 
-func NewLLMClient(llmName string) (*LLMProviderClient) {
-	 switch strings.ToLower(llmName) {
-	 case "ollama":	
-		 return NewOllamaClient(llmName)
-	 }
-	 return nil
+func NewLLMClient(llmName string) (LLMProviderClient) {
+	switch strings.ToLower(llmName) {
+	case "ollama":	
+        olm := &Ollama{Name: llmName}
+		return olm
+	}
+	return nil
 }
 
 // 建立並返回一個新的 Agent 實例
@@ -126,7 +120,7 @@ func NewAgent(llmName string, systemPrompt string, tools map[string]Tool) (*Cust
 	 }
     // 註冊 Agent
    return &CustomChatAgent{
-        LLMClient: *llmClient, // 使用指定的 LLM 客戶端
+        LLMClient: llmClient, // 使用指定的 LLM 客戶端
         SystemPrompt: systemPrompt,
         Tools: tools,
     }, nil
