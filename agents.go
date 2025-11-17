@@ -1,6 +1,7 @@
 package main
 
 import (
+    "os"
 	"fmt"
 	"strings"
 )
@@ -104,8 +105,17 @@ func (a *CustomChatAgent) ProcessStream(input *InteractionInput, outputChannel c
 
 func NewLLMClient(llmName string) (LLMProviderClient) {
 	switch strings.ToLower(llmName) {
-	case "ollama":	
-        olm := &Ollama{Name: llmName}
+	case "ollama":
+        url := os.Getenv("OllamaUrl")
+        if url == "" {
+            return nil
+        }   
+        olm := &Ollama{
+            Name: llmName, 
+            URL: strings.TrimSuffix(url, "/"),  // 確保URL不以斜杠結尾
+            Model: "gpt-oss:20b",
+            SystemPrompt: "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。",
+       }
 		return olm
 	}
 	return nil

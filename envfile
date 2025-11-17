@@ -19,4 +19,5 @@ QRCodePath=www/temp
 datafiles=/app/data/
 socketiologfile=logs/register.log
 
-ServerURL=https://www.justdrink.com.tw/apigateway/
+OllamaUrl=http://172.18.124.210:11434
+MCPServiceName=todo,weather

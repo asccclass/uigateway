@@ -3,15 +3,59 @@ package main
 import (
 	"fmt"
 	"time"
-	"strings"
+    "bufio"
+    // "strings"
     "net/http"
     "encoding/json"
 )
 
+// OllamaFunctionCallArgs 匹配 tool_calls.function.arguments 內的 JSON 字串
+type OllamaFunctionCallArgs struct {
+    Arguments json.RawMessage `json:"arguments"` // 這是個 JSON 字串，需要二次解析
+    Name string `json:"name"`          // 實際的工具名稱
+}
+
+// OllamaToolCallFunction 匹配 tool_calls 內的 function 物件
+type OllamaToolCallFunction struct {
+    Function OllamaFunctionCallArgs `json:"function"`
+}
+
+// OllamaTool 和 Function Calling 結構 (根據 Ollama 的最新 API 調整)
+type OllamaTool struct {
+    Type     string `json:"type"` // 必須是 "function"
+    Function struct {
+        Name        string                 `json:"name"`
+        Description string                 `json:"description"`
+        Parameters  map[string]interface{} `json:"parameters"`
+    } `json:"function"`
+}
+
+// OllamaGenerateRequest 定義 Ollama /api/generate 的請求體
+type OllamaGenerateRequest struct {
+	Model    string   `json:"model"`
+	Prompt   string   `json:"prompt"`
+	Stream   bool     `json:"stream"`
+	System   string   `json:"system"`
+    Tools    []OllamaTool `json:"tools,omitempty"` // Ollama Tool/Function Calling 應該要移到MCP_Host內
+}
+
+// OllamaGenerateResponse 定義 Ollama 串流回應的單個 JSON 行
+type OllamaGenerateResponse struct {
+	Model     string `json:"model"`
+	Done      bool   `json:"done"`
+	Response  string `json:"response"` // 文本內容
+    // Ollama 的 Function Calling 回應結構較為複雜，這裡只取關鍵部分
+    ToolCalls []OllamaToolCallFunction `json:"tool_calls"`
+    DoneReason string `json:"done_reason,omitempty"`
+}
+
 // Ollama 相關的配置和狀態
+// OllamaClient 實現了 LLMProviderClient 介面
 type Ollama struct {
-	Name string
+	Name string     // 客戶端名稱，實現 LLMName()
     URL  string    // Ollama 服務的基礎 URL，例如 "http://localhost:11434"
+	Model      string // 使用的模型名稱 (例如: "llama3" 或 "qwen")
+    SystemPrompt string // 實際 LLM 請求中的 System Prompt
 }
 
 func (app *Ollama) LLMName() string { 
@@ -46,50 +90,119 @@ func(app *Ollama) GetModels() ([]Model, error) {
    return listResp.Models, nil
 }
 
-func (m *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error) {
+// 送出給Ollams
+func(app *Ollama) Send2LLM(jsonData string, isImage bool)(string, error) {
+   chatType := "chat"
+   resp, err := PostData2HTTP(app.URL + "/api/" + chatType, []byte(jsonData))
+   if err != nil {
+      return "", fmt.Errorf("發送請求失敗: %s", err.Error())
+   }
+   defer resp.Body.Close()
+   body, _ := io.ReadAll(resp.Body)
+   fmt.Println("Ollama Response Body:", string(body))
+/*   
+   // 解析回應
+   var genResp GenerateResponse
+   if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {
+      return "", fmt.Errorf("解析回應失敗: %v", err)
+   }
+   return genResp.Message.Content, nil
+*/
+   return string(body), nil   
+}
+
+
+func (o *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error) {
     output := make(chan *LLMChunk)
+    o.Model = "gpt-oss:20b"
+    // modelName = "gpt-oss:20b"  // 預設模型名稱
+    // 1. 構建 Ollama 請求體
+    reqBody := OllamaGenerateRequest{
+		Model:    o.Model,
+		Prompt:   prompt,
+		Stream:   true, // 必須開啟串流
+		System:   o.SystemPrompt,
+	}
+    // 是否需要工具協助執行
+    isToolNeeded := 1
+    // 需要將我們 Agent 框架的 Tool 介面轉換成 OllamaTool 結構，
+    jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		close(output)
+		return nil, fmt.Errorf("marshalling request failed: %w", err)
+	}
+    // 先判斷使用者的問題是否需要用到工具
+    toolsResponse, err := RunTools(reqBody, o)  // (map[string]interface, error)    // MCP 工具套用
+    if toolsResponse == "" || err != nil {
+        isToolNeeded = 0
+    } else {
+        fmt.Println(toolsResponse) // 偵錯用
+    }
+    
+    // 2. 創建 HTTP 請求
+    resp, err := PostData2HTTP(o.URL, jsonData)
+    if err != nil {
+        close(output)
+        return nil, fmt.Errorf("Ollama HTTP request failed: %w", err)
+    }
     
     go func() {
+        defer resp.Body.Close()
         defer close(output)
-        // 只有當 Prompt 中包含「天氣」且不包含「Observation」時，才需要呼叫工具。
-        // 如果包含 Observation，則直接輸出最終答案。
-        isObservationPresent := strings.Contains(prompt, "Observation for tool")
-        needsToolCall := strings.Contains(prompt, "天氣") && len(tools) > 0 && !isObservationPresent
-
-        // 模擬文字輸出
-        if needsToolCall {
-            // 狀態 A: 需要呼叫工具 (因為有「天氣」且沒有 Observation)
-            // 如果需要工具呼叫，文字回應會比較簡短，或是引導語句
-            responseChunks := []string{"好的，", "我", "需要", "先", "查詢", "資料。"}
-            for _, text := range responseChunks {
-                output <- &LLMChunk{Text: text}
-                time.Sleep(time.Millisecond * 30)
+        
+		scanner := bufio.NewScanner(resp.Body)  // 使用 bufio.Scanner 按行讀取串流 (JSONL 格式)
+        for scanner.Scan() {
+            line := scanner.Bytes()
+            if len(line) == 0 {
+				continue // 跳過空行
+			}
+            // fmt.Printf("Ollama Stream Line: %s\n", line)  // --- 偵錯用 Log：觀察每一行原始輸出 ---
+            var ollamaChunk OllamaGenerateResponse
+            if err := json.Unmarshal(line, &ollamaChunk); err != nil {
+				// 可以在這裡發送錯誤 chunk 到 output，或記錄日誌
+                fmt.Printf("JSON Unmarshal Error on line: %s, Error: %s\n", string(line), err.Error())
+				continue 
+			}
+            // a. 傳輸文本塊 (正常串流輸出)
+			if ollamaChunk.Response != "" {
+				output <- &LLMChunk{Text: ollamaChunk.Response}
+			}
+/*            
+            // b. 檢查 Tool Call
+            if isToolNeeded == 0 {
+                // 我們假設只會有一個 Tool Call (許多模型都是這樣設計的)
+                ollamaToolCall := ollamaChunk.ToolCalls[0]
+                
+               // 1. 檢查並處理 Tool Call 的名稱
+                toolName := ollamaToolCall.Function.Name
+                if toolName == "" {
+                    fmt.Println("Error: Tool name is empty in Ollama response.")
+                    continue
+                }
+                var args map[string]interface{}  // 2. 解析 Arguments 直接對 json.RawMessage (ollamaToolCall.Function.Arguments) 進行 Unmarshal
+                if err := json.Unmarshal(ollamaToolCall.Function.Arguments, &args); err != nil {
+                    fmt.Printf("Tool Arguments Unmarshal Error (RawMessage): %v\n", err)
+                    continue
+                }                
+                // 將結構轉換為我們框架的 ToolCall 結構
+                output <- &LLMChunk{
+                    ToolCall: &ToolCall{
+                        Name: toolName, 
+                        Args: args, 
+                    },
+                }                
+                // 發現 Tool Call，立即結束 LLM 串流讀取，觸發 Agent 執行工具
+                // 雖然 Ollama 將 Tool Call 放在 done: true 的行中，但為了確保 Agent 即時反應，我們在這裡加入 return。
+                // return // 這裡可以選擇是否立即 return，視乎 Ollama 是否將 Tool Call 放在 streaming 中間
             }
-            // 這裡發送 ToolCall Chunk
-            fmt.Println("--> Mock LLM Client: Simulating a tool call for weather.")
-            output <- &LLMChunk{
-                ToolCall: &ToolCall{
-                    Name: "get_current_weather",
-                    Args: map[string]interface{}{"location": "Taipei"},
-                },
-            }
-            // 確保 ToolCall 發送後沒有多餘的文字輸出，否則 Agent 會讀到文字並認為回應結束
-        } else {
-            // 狀態 B: 不需要呼叫工具 (進入最終回應階段，無論是因為有 Observation 還是沒有「天氣」)
-            finalAnswer := "我已經處理了您的請求，"
-            if isObservationPresent {
-                // 如果有 Observation，模擬輸出最終答案
-                finalAnswer = "根據我的查詢，台北的天氣目前是 25°C，陽光明媚。還有什麼可以幫助您的嗎？"
-            } else {
-                // 如果沒有 Observation 且沒有「天氣」，輸出普通回答
-                finalAnswer = "請提供更多細節。"
-            }
-            for _, text := range strings.Split(finalAnswer, "") {
-                output <- &LLMChunk{Text: text}
-                time.Sleep(time.Millisecond * 10)
+*/                
+            // c. 檢查是否結束
+            if ollamaChunk.Done {
+                // 如果 Tool Call 發生在 Done 的同一行，這會是結束 LLM 串流的信號
+                fmt.Println("Ollama stream finished.")
+                return 
             }
         }
-        time.Sleep(time.Millisecond * 50) // 確保緩衝區清空（channel 本身是同步，但I/O需要時間）
     }()
     return output, nil
 }
