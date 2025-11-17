@@ -1,6 +1,7 @@
 package main
 
 import (
+    "io"
 	"fmt"
 	"time"
     "bufio"
@@ -124,7 +125,7 @@ func (o *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, 
 		System:   o.SystemPrompt,
 	}
     // 是否需要工具協助執行
-    isToolNeeded := 1
+    isToolNeeded := 0
     // 需要將我們 Agent 框架的 Tool 介面轉換成 OllamaTool 結構，
     jsonData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -133,8 +134,8 @@ func (o *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, 
 	}
     // 先判斷使用者的問題是否需要用到工具
     toolsResponse, err := RunTools(reqBody, o)  // (map[string]interface, error)    // MCP 工具套用
-    if toolsResponse == "" || err != nil {
-        isToolNeeded = 0
+    if toolsResponse != "" && err == nil {
+        isToolNeeded = 1
     } else {
         fmt.Println(toolsResponse) // 偵錯用
     }
@@ -167,9 +168,9 @@ func (o *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, 
 			if ollamaChunk.Response != "" {
 				output <- &LLMChunk{Text: ollamaChunk.Response}
 			}
-/*            
+           
             // b. 檢查 Tool Call
-            if isToolNeeded == 0 {
+            if isToolNeeded == 1 {
                 // 我們假設只會有一個 Tool Call (許多模型都是這樣設計的)
                 ollamaToolCall := ollamaChunk.ToolCalls[0]
                 
@@ -195,7 +196,8 @@ func (o *Ollama) StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, 
                 // 雖然 Ollama 將 Tool Call 放在 done: true 的行中，但為了確保 Agent 即時反應，我們在這裡加入 return。
                 // return // 這裡可以選擇是否立即 return，視乎 Ollama 是否將 Tool Call 放在 streaming 中間
             }
-*/                
+
+                          
             // c. 檢查是否結束
             if ollamaChunk.Done {
                 // 如果 Tool Call 發生在 Done 的同一行，這會是結束 LLM 串流的信號

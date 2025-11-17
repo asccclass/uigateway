@@ -31,10 +31,11 @@ type ToolCall struct {
 // parseIntentWithOllama 使用 Ollama 解析使用者意圖
 func parseIntent(llm OllamaGenerateRequest, srv *MCPServer) (map[string]interface{}, error) {
    prompt := fmt.Sprintf("%s\n\n使用者輸入：`%s`", srv.Name, llm.Prompt)
+   fmt.Println(prompt)
    response := ""
    var err error
 
-   res, err := Send2LLM(jData, false)  // (string, error) 
+   res, err := Send2LLM(prompt, false)  // (string, error) 
    if err != nil {
       return nil, fmt.Errorf("query ollama for intent: %s", err.Error())
    }
@@ -60,12 +61,7 @@ func parseIntent(llm OllamaGenerateRequest, srv *MCPServer) (map[string]interfac
          "parameters":      map[string]interface{}{},
       }, nil 
 
-      return nil, fmt.Errorf("Parse intent failed（Mcpsrv 回傳格式錯誤）: %s", err.Error())      
-      /* return map[string]interface{}{
-         "is_related": false,
-         "action":          "general_chat",
-         "parameters":      map[string]interface{}{},
-      }, nil */
+      return nil, fmt.Errorf("Parse intent failed（Mcpsrv 回傳格式錯誤）: %s", err.Error())  
    }   
    return intent, nil
 }
@@ -87,14 +83,14 @@ type MCPServer struct {
 	ProcessPrompt string					`json:"processPrompt,omitempty"` // 處理ID服務事項的提示，若是則需要做何處理
 }
 */    
-func RunTools(reqBody OllamaGenerateRequest)(string, error){
+func RunTools(reqBody OllamaGenerateRequest, o *Ollama)(string, error){
 	if len(McpHost.ConnectedServers) == 0 {  // 檢查是否有連接的 MCP Server
 		return "", fmt.Errorf("no connected MCP servers")	
 	}	
 	for _, srv:= range McpHost.ConnectedServers {  // 遍歷所有MCP Server
       if srv.IsRelatedPrompt == "" {
 	     continue  // 如果沒有相關提示，則跳過
-	  }
+	   }
       s, err := parseIntent(reqBody, srv) // (map[string]interface{}, error)	  *********
       if err != nil {
          continue  // 如果解析不相關，則跳過  fmt.Println("解析意圖不相關:", err.Error())
