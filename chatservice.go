@@ -25,7 +25,7 @@ type InteractionInput struct {
 // - 它應該在 Goroutine 中執行，並在完成時關閉 Channel。
 type Agent interface {
 	Name() string
-	ProcessStream(input *InteractionInput, outputChannel chan *StreamChunk) error
+	ProcessStream(input string, outputChannel chan *StreamChunk) error
 }
 
 // InteractionService 儲存所有 Agent (解決 undefined: InteractionService)

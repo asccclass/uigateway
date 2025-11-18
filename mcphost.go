@@ -59,6 +59,16 @@ type MCPHost struct {
 	ConnectedServers map[string]*MCPServer
 }
 
+// 尋找工具
+func(srv *MCPServer) SearchTool(action string)(*ToolDesc, error) {
+	for _, tool := range srv.Capabilities.Tools {  // 遍歷所有工具
+		if tool.Name == action {  // 如果找到匹配的工具
+			return &tool, nil  // 返回工具描述
+		}
+	}
+	return nil, fmt.Errorf("未找到名為 %s 的工具", action)  // 如果沒有找到，返回錯誤
+}
+
 // 連接到MCP Server並進行能力協商，只執行一次
 func(h *MCPHost) AddCapabilities(serviceName, endpoint string) (error) {
 	// 建立HTTP客戶端，設定逾時時間

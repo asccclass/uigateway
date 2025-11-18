@@ -43,8 +43,6 @@ func main() {
       fmt.Println("router return nil")
       return
    }
-	sse := NewSSEService()
-	sse.AddRouter(router)
    // MCP HOST 初始化
    if os.Getenv("MCPServiceName") != "" {
       McpHost = NewMCPHost()
@@ -60,18 +58,23 @@ func main() {
    
 	// AI
 	chatService = NewInteractionService()  // 服務初始化 (解決 nil pointer dereference)
-    // 註冊工具
+   /* // 註冊工具
     tools := map[string]Tool{
         "get_current_weather": &WeatherTool{},
-    }
-	 prompt := "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。"
+    }*/
+	 // prompt := "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。"
+	 prompt := "你是一個樂於助人的助手"
 	 // 註冊 Agent
-	 agent, err := NewAgent("ollama", prompt, tools)
+	 agent, err := NewAgent("ollama", prompt)
 	 if err != nil {
 	    fmt.Println("Failed to create Agent:", err)
 	    return
 	 }
 	chatService.RegisterAgent("chat", agent)
+
+   // SSE 服務註冊
+	sse := NewSSEService()
+	sse.AddRouter(router)
 
    server.Server.Handler = router  // server.CheckCROS(router)  // 需要自行implement, overwrite 預設的
    server.Start()

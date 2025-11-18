@@ -9,8 +9,12 @@ import (
 // LLMProviderClient 介面：一個虛擬的 LLM 客戶端介面，用於抽象化不同的 LLM SDK
 type LLMProviderClient interface {
 	LLMName() string
-   // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
-    StreamGenerate(prompt string, tools []Tool) (<-chan *LLMChunk, error)
+    GetURL() string
+    GetModel() string
+    GetSystemPrompt() string
+    GetModels() ([]Model, error) 
+    Send2LLM(string, bool)(string, error)
+    StreamGenerate(string, string) (<-chan *LLMChunk, error)  // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
 }
 
 // LLM 服務的客戶端 (例如：*openai.Client, *genai.Client, 或統一的 SDK)
@@ -41,24 +45,26 @@ func (app *CustomChatAgent) getAvailableTools() []Tool {
 }
 
 // ProcessStream Agent 核心邏輯
-func (a *CustomChatAgent) ProcessStream(input *InteractionInput, outputChannel chan *StreamChunk) error {
-   defer close(outputChannel)
+func (a *CustomChatAgent) ProcessStream(userPrompt string, outputChannel chan *StreamChunk) (error) {
+   defer close(outputChannel)  // 作用是關閉 (close) 一個 channel。channel 被關閉，就不能再向其發送資料，否則會導致 panic
 	
-   // 解決 undefined: a.buildInitialPrompt 的方法
-   fullPrompt := fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, input.Query)
-   maxIterations := 5
+   maxIterations := 5 // 最大迭代次數，防止無限循環
+   fullPrompt := userPrompt
+   if a.SystemPrompt != "" {
+      fullPrompt = fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, userPrompt)
+   }
     
-   // 1. 傳送開始事件
+   // 1. 發送開始事件
    outputChannel <- &StreamChunk{
       Type: "start",
       Data: map[string]string{"status": "thinking"},
    }
 
    for currentIteration := 0; currentIteration < maxIterations; currentIteration++ {
-        llmStream, err := a.LLMClient.StreamGenerate(fullPrompt, a.getAvailableTools())  // 呼叫 LLM 串流
+        llmStream, err := a.LLMClient.StreamGenerate(fullPrompt, userPrompt)  // 呼叫 LLM 串流
         if err != nil {
-            outputChannel <- &StreamChunk{Type: "error", Data: err.Error()}
-            return fmt.Errorf("LLM stream error: %w", err)
+           outputChannel <- &StreamChunk{Type: "error", Data: err.Error()}
+           return fmt.Errorf("LLM stream error: %w", err)
         }
         var toolCall *ToolCall
         var textOutput strings.Builder // 僅用於單輪推理的文字緩衝
@@ -122,16 +128,16 @@ func NewLLMClient(llmName string) (LLMProviderClient) {
 }
 
 // 建立並返回一個新的 Agent 實例
-func NewAgent(llmName string, systemPrompt string, tools map[string]Tool) (*CustomChatAgent, error) {   
-	 llmClient := NewLLMClient(llmName)   // 設定使用的LLM服務
-	 if llmClient == nil {
-	    fmt.Println("Failed to create LLM client")
-	    return nil, fmt.Errorf("failed to create LLM client")
-	 }
-    // 註冊 Agent
+func NewAgent(llmName string, systemPrompt string) (*CustomChatAgent, error) {   
+   llmClient := NewLLMClient(llmName)   // 設定使用的LLM服務
+   if llmClient == nil {
+	   fmt.Println("Failed to create LLM client")
+	   return nil, fmt.Errorf("failed to create LLM client")
+   }
+   // 註冊 Agent
    return &CustomChatAgent{
         LLMClient: llmClient, // 使用指定的 LLM 客戶端
         SystemPrompt: systemPrompt,
-        Tools: tools,
-    }, nil
+        Tools: map[string]Tool{},
+   }, nil
 }

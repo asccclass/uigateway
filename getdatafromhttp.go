@@ -25,7 +25,7 @@ func GetDataFromHTTP(url string) (string, error) {
 }
 
 func PostData2HTTP(url string, jsonData []byte) (*http.Response, error) {
-	req, err := http.NewRequest("POST", url + "/api/generate", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("creating request failed: %w", err)
 	}
