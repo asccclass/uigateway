@@ -3,6 +3,7 @@ package main
 import (
    "os"
    "fmt"
+   "sync"
    "strings"
    "github.com/joho/godotenv"
    "github.com/asccclass/sherryserver"
@@ -45,15 +46,23 @@ func main() {
    }
    // MCP HOST 初始化
    if os.Getenv("MCPServiceName") != "" {
+      var wg sync.WaitGroup // 使用 WaitGroup
       McpHost = NewMCPHost()
       serviceNames := os.Getenv("MCPServiceName")
       parts := strings.Split(serviceNames, ",")
+      fmt.Printf("🚀 開始非同步處理 %d 個服務...\n", len(parts))
       for _, part := range parts {
-         endpoint := "https://www.justdrink.com.tw/mcpsrv/capabilities/" + part
-         if err := McpHost.AddCapabilities(part, endpoint); err != nil {
-            fmt.Printf("獲取 MCP Server %s 服務失敗: %s\n", serviceNames,err.Error())        
-         }
+         wg.Add(1) // 增加計數器
+         
+         go func(part string) {
+            defer wg.Done()
+            endpoint := "https://www.justdrink.com.tw/mcpsrv/capabilities/" + part
+            if err := McpHost.AddCapabilities(part, endpoint); err != nil {
+               fmt.Printf("獲取 MCP Server: %s 服務失敗: %s\n", part,err.Error())        
+            }
+         }(part)
       }
+      wg.Wait() // 等待所有 goroutine 完成
    }
    
 	// AI

@@ -88,10 +88,13 @@ func CheckTools(prompt string, llmClient LLMProviderClient)(string, error){
       if srv.IsRelatedPrompt == "" {
 	     continue  // 如果沒有相關提示，則跳過判斷
 	   }
-      s, err := parseIntent(prompt, srv, llmClient) // (map[string]interface{}, error)	  *********
+      fmt.Println("嘗試使用 MCP 伺服器：" + srv.Name) // 偵錯用
+      s, err := parseIntent(prompt, srv, llmClient) // (map[string]interface{}, error)	
+      fmt.Println("解析結果:", s) // 偵錯用
       if err != nil {
          continue  // 如果解析不相關，則跳過  fmt.Println("解析意圖不相關:", err.Error())
       }
+      fmt.Println(s["action"].(string))
       action, ok := s["action"].(string)
       if !ok || action == "" {
 	     continue  // 如果沒有動作，則跳過

@@ -1,14 +1,30 @@
 package main
 
 import (
-    "io"
+   // "io"
 	"fmt"
 	"time"
     "bufio"
+    "bytes"
     // "strings"
     "net/http"
     "encoding/json"
 )
+
+// 生成回應結構
+type GenerateResponse struct {
+   Model              string    `json:"model"`
+   CreatedAt          time.Time `json:"created_at"`
+   Message            Message    `json:"message"`
+	DoneReason         string    `json:"done_reason"`
+   Done               bool      `json:"done"`
+   TotalDuration      int64     `json:"total_duration,omitempty"`
+   LoadDuration       int64     `json:"load_duration,omitempty"`
+   PromptEvalCount    int64     `json:"prompt_eval_count,omitempty"`
+   PromptEvalDuration int64     `json:"prompt_eval_duration,omitempty"`
+   EvalCount          int64     `json:"eval_count,omitempty"`
+   EvalDuration       int64     `json:"eval_duration,omitempty"`
+}
 
 // OllamaFunctionCallArgs 匹配 tool_calls.function.arguments 內的 JSON 字串
 type OllamaFunctionCallArgs struct {
@@ -96,21 +112,22 @@ func(app *Ollama) GetModels() ([]Model, error) {
 
 // 送出給Ollams（需要每個 LLM 自行 Implement，因為 API 網址不同）
 func(app *Ollama) Send2LLM(jsonData string, isImage bool)(string, error) {
-   resp, err := PostData2HTTP(app.URL + "/api/chat", []byte(jsonData))
+   resp, err := http.Post(app.URL+"/api/chat", "application/json", bytes.NewBuffer([]byte(jsonData))) // 發送請求給 Ollama  
    if err != nil {
       return "", fmt.Errorf("發送請求失敗: %s", err.Error())
    }
    defer resp.Body.Close()
-   body, _ := io.ReadAll(resp.Body)
-/*   
+   if resp.StatusCode != http.StatusOK { // 如果狀態碼不是 200 OK，則返回錯誤
+      return "", fmt.Errorf("%s生成回應失敗，狀態碼: %d", app.URL,resp.StatusCode)
+   }
+
    // 解析回應
    var genResp GenerateResponse
    if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {
       return "", fmt.Errorf("解析回應失敗: %v", err)
    }
+   fmt.Println("Ollama 回應內容:", genResp.Message.Content) // 偵錯用
    return genResp.Message.Content, nil
-*/
-   return string(body), nil   
 }
 
 func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, error) {
@@ -129,10 +146,13 @@ func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, err
    
    isToolNeeded := 0  // 是否需要工具協助執行
    if len(McpHost.ConnectedServers) > 0 { // 先判斷使用者的問題是否需要用到MCP工具回答
+      fmt.Println("檢查是否需要使用 MCP 工具...")
       toolsName, err = CheckTools(userPrompt, o)  // (map[string]interface, error)    // MCP 工具套用
       if toolsName != "" && err == nil {
          isToolNeeded = 1
          fmt.Println("使用工具：" + toolsName) // 偵錯用
+      } else {
+         fmt.Println("偵錯用：", userPrompt) // 偵錯用
       }
    }
     
