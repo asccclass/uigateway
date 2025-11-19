@@ -20,4 +20,8 @@ datafiles=/app/data/
 socketiologfile=logs/register.log
 
 OllamaUrl=http://172.18.124.210:11434
+
 MCPServiceName=todo,weather
+MCPSrv=https://www.justdrink.com.tw
+MCPSrvPath=/mcpsrv/
+MCPToken=justgps@gmail.com
