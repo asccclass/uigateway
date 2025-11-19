@@ -7,7 +7,8 @@ import(
 // 訊息架構
 type Message struct {
    Role    string    `json:"role"`
-	Content string    `json:"content"`
+   Content string    `json:"content"`
+   thinking string    `json:"thinking,omitempty"` // 思考過程
    Images  []string  `json:"images,omitempty"` // 圖片列表
 }
 

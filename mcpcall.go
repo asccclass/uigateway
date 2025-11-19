@@ -44,6 +44,7 @@ type CallToolResults struct {
 
 // callMCPTool 調用 MCP Server 的工具
 func callMCPTool(toolName string, args map[string]interface{}) (string, error) {
+	fmt.Println("調用 MCP 工具:", toolName) // 偵錯用
 	request := CallToolRequest{
 		JSONRPC: os.Getenv("JSONRPCVersion"), //JSONRPC Version 版本
 		Method: "tools/call",	// tools/list)列出所有工具名稱  tools/call)調用工具
@@ -63,9 +64,6 @@ func callMCPTool(toolName string, args map[string]interface{}) (string, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %s", err.Error())
-	}
-   if os.Getenv("Debug") == "true" {
-		fmt.Println("MCPServer 請求內容:", string(jsonData))  // MCPServer 請求內容
 	}
 	hClient := &http.Client {
 	   Timeout: 60 * time.Second,
@@ -93,5 +91,6 @@ func callMCPTool(toolName string, args map[string]interface{}) (string, error) {
 	if len(result.Content) > 0 {
 		return result.Content[0].Text, nil
 	}
+	fmt.Println("MCP 工具操作完成，但沒有結果回傳")
 	return "操作完成", nil
 }

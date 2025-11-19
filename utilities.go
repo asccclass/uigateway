@@ -8,9 +8,7 @@ import(
 
 )
 
-func Prompt2String(role, prompt string)(string, error) {  //req GenerateRequest, role, prompt, base64Image string)(string, error) {
-   msgs := []Message{}  // 重置訊息列表  
-   msgs = append(msgs, Message{Role: role, Content: prompt})
+func Prompt2String(reqBody GenerateRequest, role, prompt string)(string, error) {  //req GenerateRequest, role, prompt, base64Image string)(string, error) {
 /*   
    if base64Image != "" {
       req.Images = []string{base64Image}
@@ -19,7 +17,8 @@ func Prompt2String(role, prompt string)(string, error) {  //req GenerateRequest,
       req.Messages = append(req.Messages, Message{Role: role, Content: prompt})
    }
 */      
-   jData, err := json.Marshal(msgs)  // 將請求轉為 JSON
+   reqBody.Messages = append(reqBody.Messages, Message{Role: role, Content: prompt})
+   jData, err := json.Marshal(reqBody)  // 將請求轉為 JSON
    if err != nil {
       return "", fmt.Errorf("prompt to string's json marshal failed, 序列化請求失敗: %s", err.Error())
    }
@@ -27,17 +26,18 @@ func Prompt2String(role, prompt string)(string, error) {  //req GenerateRequest,
 }
 
 // parseIntentWithOllama 使用 Ollama 解析使用者意圖
-func parseIntent(pt string, srv *MCPServer, llmClient LLMProviderClient) (map[string]interface{}, error) {
+func parseIntent(reqBody GenerateRequest,pt string, srv *MCPServer, llmClient LLMProviderClient) (map[string]interface{}, error) {
+   // reqBody.System = srv.IsRelatedPrompt
    prompt := fmt.Sprintf("%s\n\n使用者輸入：`%s`", srv.IsRelatedPrompt, pt)   // 組合判斷是否需要使用工具的prompt
 
    response := ""
    var err error
    
-   jData, err := Prompt2String("user", prompt)
+   jData, err := Prompt2String(reqBody, "user", prompt)  // (string, error)
    if err != nil {
       return nil, fmt.Errorf("prepare prompt for ollama: %s", err.Error())
    }
-   res, err := llmClient.Send2LLM(jData, false)  // (string, error) 
+   res, err := llmClient.Send2LLM(jData, false)  // (string, error) 回傳：{"is_related": false, "action": "general_chat", "parameters": {}}
    if err != nil {
       return nil, fmt.Errorf("query ollama for intent: %s", err.Error())
    }
@@ -83,18 +83,30 @@ type MCPServer struct {
 func CheckTools(prompt string, llmClient LLMProviderClient)(string, error){
 	if len(McpHost.ConnectedServers) == 0 {  // 檢查是否有連接的 MCP Server
 		return "", fmt.Errorf("no connected MCP servers")	
-	}	
+	}
+
+   reqBody := GenerateRequest {  // 初始化
+      Model:  llmClient.GetModel(),
+      Messages: []Message{
+         {
+            Role:    "system",
+            Content: "請務必使用繁體中文進行所有回覆，不可使用簡體中文。", // 設定系統指令
+        },
+      },   // role, content
+      Stream: false,          // 因為要一次取得json，故不使用串流模式
+   }
 	for _, srv:= range McpHost.ConnectedServers {  // 遍歷所有MCP Server
       if srv.IsRelatedPrompt == "" {
 	     continue  // 如果沒有相關提示，則跳過判斷
 	   }
-      fmt.Println("嘗試使用 MCP 伺服器：" + srv.Name) // 偵錯用
-      s, err := parseIntent(prompt, srv, llmClient) // (map[string]interface{}, error)	
-      fmt.Println("解析結果:", s) // 偵錯用
+      s, err := parseIntent(reqBody, prompt, srv, llmClient) // (map[string]interface{}, error)	
       if err != nil {
          continue  // 如果解析不相關，則跳過  fmt.Println("解析意圖不相關:", err.Error())
       }
-      fmt.Println(s["action"].(string))
+      isRelate, ok := s["is_related"].(bool)
+      if !ok || !isRelate {
+	     continue  // 如果解析不相關，則跳過
+	  }
       action, ok := s["action"].(string)
       if !ok || action == "" {
 	     continue  // 如果沒有動作，則跳過

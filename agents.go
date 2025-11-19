@@ -6,6 +6,35 @@ import (
 	"strings"
 )
 
+// 通用的 LLM 請求結構
+// 生成選項結構
+type Options struct {
+   Temperature      float64 `json:"temperature,omitempty"`
+   TopP             float64 `json:"top_p,omitempty"`
+   TopK             int     `json:"top_k,omitempty"`
+   NumPredict       int     `json:"num_predict,omitempty"`
+   NumKeep          int     `json:"num_keep,omitempty"`
+   Seed             int     `json:"seed,omitempty"`
+   FrequencyPenalty float64 `json:"frequency_penalty,omitempty"`
+   PresencePenalty  float64 `json:"presence_penalty,omitempty"`
+   Mirostat         int     `json:"mirostat,omitempty"`
+   MirostatEta      float64 `json:"mirostat_eta,omitempty"`
+   MirostatTau      float64 `json:"mirostat_tau,omitempty"`
+   Stop             string  `json:"stop,omitempty"`
+}
+
+type GenerateRequest struct {
+   Model    string	`json:"model"`
+   Messages []Message `json:"messages"`
+   System   string	`json:"system,omitempty"`
+   Format   string	`json:"format,omitempty"`
+   Stream   bool	`json:"stream"`
+   Options  Options	`json:"options,omitempty"`
+   Images   []string	`json:"images,omitempty"`
+   Context  []int	`json:"context,omitempty"`
+   Template string	`json:"template,omitempty"`
+}
+
 // LLMProviderClient 介面：一個虛擬的 LLM 客戶端介面，用於抽象化不同的 LLM SDK
 type LLMProviderClient interface {
 	LLMName() string

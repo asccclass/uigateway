@@ -8,6 +8,7 @@ import (
     "bytes"
     // "strings"
     "net/http"
+   "io/ioutil"
     "encoding/json"
 )
 
@@ -118,19 +119,97 @@ func(app *Ollama) Send2LLM(jsonData string, isImage bool)(string, error) {
    }
    defer resp.Body.Close()
    if resp.StatusCode != http.StatusOK { // 如果狀態碼不是 200 OK，則返回錯誤
-      return "", fmt.Errorf("%s生成回應失敗，狀態碼: %d", app.URL,resp.StatusCode)
+      body, _ := ioutil.ReadAll(resp.Body)
+      return "", fmt.Errorf("%s生成回應失敗，狀態碼: %d\n%s", app.URL+"/api/chat",resp.StatusCode, string(body))
    }
 
    // 解析回應
    var genResp GenerateResponse
    if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {
-      return "", fmt.Errorf("解析回應失敗: %v", err)
+      fmt.Printf("Send2LLM DECODE ERROR:解析回應失敗內容: %s\n", err.Error())  // 偵錯用 Log：觀察回應內容
+      return "", fmt.Errorf("解析回應失敗: %s", err.Error())
    }
-   fmt.Println("Ollama 回應內容:", genResp.Message.Content) // 偵錯用
    return genResp.Message.Content, nil
 }
 
+
 func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, error) {
+    output := make(chan *LLMChunk)
+    o.Model = "gpt-oss:20b"  // modelName = "gpt-oss:20b"  // 預設模型名稱
+    go func() {
+        defer close(output) // 確保無論走哪條路徑 (MCP 或 Ollama 或 錯誤)，最後都會關閉 Channel
+        // 1. 嘗試使用 MCP 工具
+        if len(McpHost.ConnectedServers) > 0 {            
+            toolsResult, err := CheckTools(userPrompt, o)  // 在 Goroutine 內部執行耗時的 CheckTools            
+            if err == nil && toolsResult != "" {  // 若 MCP 成功處理，將結果寫入 Channel                
+                output <- &LLMChunk{Text: toolsResult}                 
+                return  // 任務完成，直接結束 Goroutine (不執行後續 Ollama 請求)
+            }
+            fmt.Println("偵錯用：MCP 無匹配或無結果，轉由一般 Ollama 處理 ->", userPrompt)   // 若 MCP 無結果，印出 Log 並繼續往下走
+        }
+        // 2. 執行一般 Ollama 請求 (Fallback)
+        reqBody := OllamaGenerateRequest{
+            Model:  o.Model,
+            Prompt: prompt,
+            Stream: true,
+            System: o.SystemPrompt,
+        }
+        jsonData, err := json.Marshal(reqBody)
+        if err != nil {
+            fmt.Printf("Marshalling request failed: %v\n", err)
+            return // 發生錯誤直接結束，defer 會關閉 channel
+        }
+        // 發送 HTTP 請求
+        resp, err := PostData2HTTP(o.GetURL()+"/api/generate", jsonData)
+        if err != nil {
+            fmt.Printf("Ollama HTTP request failed: %v\n", err)
+            return
+        }
+        defer resp.Body.Close()
+        // 開始讀取 Ollama 串流
+        scanner := bufio.NewScanner(resp.Body)
+        for scanner.Scan() {
+            line := scanner.Bytes()
+            if len(line) == 0 {
+                continue
+            }
+
+            var ollamaChunk OllamaGenerateResponse
+            if err := json.Unmarshal(line, &ollamaChunk); err != nil {
+                fmt.Printf("JSON Unmarshal Error: %s\n", err.Error())
+                continue
+            }
+
+            // a. 傳輸文本塊
+            if ollamaChunk.Response != "" {
+                output <- &LLMChunk{Text: ollamaChunk.Response}
+            }
+            // b. 檢查 Ollama 原生 Tool Call (非 MCP)
+            if len(ollamaChunk.ToolCalls) > 0 {
+                ollamaToolCall := ollamaChunk.ToolCalls[0]
+                toolName := ollamaToolCall.Function.Name
+                
+                if toolName != "" {
+                    var args map[string]interface{}
+                    if err := json.Unmarshal(ollamaToolCall.Function.Arguments, &args); err == nil {
+                        output <- &LLMChunk{
+                            ToolCall: &ToolCall{
+                                Name: toolName,
+                                Args: args,
+                            },
+                        }
+                    }
+                }
+            }
+            if ollamaChunk.Done {  // c. 檢查是否結束
+                return
+            }
+        }
+    }()
+    return output, nil
+}
+
+func(o *Ollama) StreamGenerate_OLD(prompt, userPrompt string) (<-chan *LLMChunk, error) {
     output := make(chan *LLMChunk)
     o.Model = "gpt-oss:20b"  // modelName = "gpt-oss:20b"  // 預設模型名稱
 
@@ -142,15 +221,13 @@ func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, err
 		System:   o.SystemPrompt,
 	}
    var err error
-   toolsName := ""
+   toolsResult := ""
    
    isToolNeeded := 0  // 是否需要工具協助執行
    if len(McpHost.ConnectedServers) > 0 { // 先判斷使用者的問題是否需要用到MCP工具回答
-      fmt.Println("檢查是否需要使用 MCP 工具...")
-      toolsName, err = CheckTools(userPrompt, o)  // (map[string]interface, error)    // MCP 工具套用
-      if toolsName != "" && err == nil {
+      toolsResult, err = CheckTools(userPrompt, o)  // (map[string]interface, error)    // MCP 工具套用
+      if toolsResult != "" && err == nil {
          isToolNeeded = 1
-         fmt.Println("使用工具：" + toolsName) // 偵錯用
       } else {
          fmt.Println("偵錯用：", userPrompt) // 偵錯用
       }
@@ -176,8 +253,8 @@ func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, err
         for scanner.Scan() {
             line := scanner.Bytes()
             if len(line) == 0 {
-				continue // 跳過空行
-			}
+				   continue // 跳過空行
+            }
          // fmt.Printf("Ollama Stream Line: %s\n", line)  // --- 偵錯用 Log：觀察每一行原始輸出 ---
          var ollamaChunk OllamaGenerateResponse
          if err := json.Unmarshal(line, &ollamaChunk); err != nil {  // 可以在這裡發送錯誤 chunk 到 output，或記錄日誌				
@@ -187,10 +264,9 @@ func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, err
          // a. 傳輸文本塊 (正常串流輸出)
 			if ollamaChunk.Response != "" {
 				output <- &LLMChunk{Text: ollamaChunk.Response}
-			}
-           
-         // b. 檢查 Tool Call
-         if isToolNeeded == 1 {
+			}         
+         
+         if isToolNeeded == 1 {  // b. 檢查 Tool Call
             // 我們假設只會有一個 Tool Call (許多模型都是這樣設計的)
             ollamaToolCall := ollamaChunk.ToolCalls[0]
                
@@ -215,13 +291,12 @@ func(o *Ollama) StreamGenerate(prompt, userPrompt string) (<-chan *LLMChunk, err
             // 發現 Tool Call，立即結束 LLM 串流讀取，觸發 Agent 執行工具
             // 雖然 Ollama 將 Tool Call 放在 done: true 的行中，但為了確保 Agent 即時反應，我們在這裡加入 return。
             // return // 這裡可以選擇是否立即 return，視乎 Ollama 是否將 Tool Call 放在 streaming 中間
-         }
-                        
+         }                     
          // c. 檢查是否結束
          if ollamaChunk.Done {
-               // 如果 Tool Call 發生在 Done 的同一行，這會是結束 LLM 串流的信號
-               fmt.Println("Ollama stream finished.")
-               return 
+            // 如果 Tool Call 發生在 Done 的同一行，這會是結束 LLM 串流的信號
+            fmt.Println("Ollama stream finished.")
+            return 
          }
       }
     }()
