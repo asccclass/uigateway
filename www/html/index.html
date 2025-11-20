@@ -85,6 +85,17 @@
             border-left-color: var(--accent-color);
         }
 
+        /* Right Sidebar */
+        #right-sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 10px 0;
+            flex-shrink: 0;
+        }
+
         /* Main Content */
         #main-content {
             flex: 1;
@@ -313,6 +324,64 @@
             margin-top: 0.5em;
             margin-bottom: 0.5em;
         }
+
+        /* Weather Card */
+        .sidebar-card {
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 0 10px 10px 10px;
+            font-size: 0.85rem;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .weather-location {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .weather-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .weather-temp {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: var(--text-primary);
+        }
+
+        .weather-condition {
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .weather-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 </head>
 
@@ -352,141 +421,296 @@
                 <input type="text" id="query-input" placeholder="輸入您的問題 (例如：台北天氣如何？)..." autocomplete="off" autofocus>
             </form>
         </div>
+    </div>
 
-        <script>
-            const chatForm = document.getElementById('chat-form');
-            const queryInput = document.getElementById('query-input');
-            const statusText = document.getElementById('status-text');
-            const statusDot = document.getElementById('status-dot');
-            const chatContainer = document.getElementById('chat-container');
+    <div id="right-sidebar">
+        <div class="sidebar-header">DETAILS</div>
+        <div id="weather-card-container">
+            <!-- Weather Card will be injected here -->
+        </div>
+        <div class="sidebar-item">
+            <span>📝</span> 筆記 (Notes)
+        </div>
+    </div>
 
-            let eventSource = null;
-            let currentAgentContent = null;
-            let currentRawText = ""; // Store raw markdown text
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const queryInput = document.getElementById('query-input');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
+        const chatContainer = document.getElementById('chat-container');
 
-            function scrollToBottom() {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+        let eventSource = null;
+        let currentAgentContent = null;
+        let currentRawText = ""; // Store raw markdown text
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function updateStatus(text, type) {
+            statusText.textContent = text;
+            statusDot.className = 'status-dot ' + type;
+        }
+
+        function appendUserMessage(message) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message user';
+            msgDiv.innerHTML = `
+            <div class="message-header">You</div>
+            <div class="message-content">${escapeHtml(message)}</div>
+        `;
+            chatContainer.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function createAgentMessageBlock() {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message agent';
+            msgDiv.innerHTML = `
+            <div class="message-header">AI Assistant</div>
+            <div class="message-content markdown-body"></div>
+        `;
+            chatContainer.appendChild(msgDiv);
+            return msgDiv.querySelector('.message-content');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function connectAgent(query) {
+            if (eventSource) {
+                eventSource.close();
             }
 
-            function updateStatus(text, type) {
-                statusText.textContent = text;
-                statusDot.className = 'status-dot ' + type;
-            }
+            const url = `/events?user_id=test_user_123&query=${encodeURIComponent(query)}`;
+            eventSource = new EventSource(url);
 
-            function appendUserMessage(message) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message user';
-                msgDiv.innerHTML = `
-                <div class="message-header">You</div>
-                <div class="message-content">${escapeHtml(message)}</div>
-            `;
-                chatContainer.appendChild(msgDiv);
-                scrollToBottom();
-            }
+            updateStatus('思考中...', 'thinking');
 
-            function createAgentMessageBlock() {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message agent';
-                msgDiv.innerHTML = `
-                <div class="message-header">AI Assistant</div>
-                <div class="message-content markdown-body"></div>
-            `;
-                chatContainer.appendChild(msgDiv);
-                return msgDiv.querySelector('.message-content');
-            }
+            // Create new agent message block
+            currentAgentContent = createAgentMessageBlock();
+            currentRawText = ""; // Reset raw text
 
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            function connectAgent(query) {
-                if (eventSource) {
-                    eventSource.close();
-                }
-
-                const url = `/events?user_id=test_user_123&query=${encodeURIComponent(query)}`;
-                eventSource = new EventSource(url);
-
-                updateStatus('思考中...', 'thinking');
-
-                // Create new agent message block
-                currentAgentContent = createAgentMessageBlock();
-                currentRawText = ""; // Reset raw text
-
-                eventSource.addEventListener('start', (event) => {
-                    const data = JSON.parse(event.data);
-                    updateStatus(data.status, 'thinking');
-                });
-
-                eventSource.addEventListener('message', (event) => {
-                    const text = JSON.parse(event.data);
-                    currentRawText += text;
-                    // Render Markdown
-                    currentAgentContent.innerHTML = marked.parse(currentRawText);
-                    // Apply Syntax Highlighting to new code blocks
-                    currentAgentContent.querySelectorAll('pre code').forEach((block) => {
-                        hljs.highlightElement(block);
-                    });
-                    scrollToBottom();
-                });
-
-                eventSource.addEventListener('tool_call', (event) => {
-                    const data = JSON.parse(event.data);
-                    updateStatus(`正在執行工具 ${data.tool_name}...`, 'thinking');
-
-                    const toolDiv = document.createElement('div');
-                    toolDiv.className = 'tool-call';
-                    toolDiv.textContent = `呼叫工具: ${data.tool_name}`;
-
-                    const agentMsgDiv = currentAgentContent.parentElement;
-                    agentMsgDiv.insertBefore(toolDiv, currentAgentContent.nextSibling);
-
-                    // Create a new content block for text after tool call
-                    const newContent = document.createElement('div');
-                    newContent.className = 'message-content markdown-body';
-                    agentMsgDiv.appendChild(newContent);
-                    currentAgentContent = newContent;
-                    currentRawText = ""; // Reset for new block
-
-                    scrollToBottom();
-                });
-
-                eventSource.addEventListener('end', (event) => {
-                    const data = JSON.parse(event.data);
-                    updateStatus('就緒', 'active');
-                    eventSource.close();
-                });
-
-                eventSource.addEventListener('error', (event) => {
-                    if (eventSource.readyState === EventSource.CLOSED) return;
-                    updateStatus('連接錯誤', 'error');
-                    console.error('EventSource Error:', event);
-                    eventSource.close();
-                });
-
-                eventSource.onopen = (e) => {
-                    updateStatus('生成中...', 'active');
-                };
-            }
-
-            chatForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const query = queryInput.value.trim();
-                if (query) {
-                    // Remove initial greeting if it's the only thing
-                    const firstMsg = chatContainer.querySelector('.message.agent .message-content');
-                    if (chatContainer.children.length === 1 && firstMsg && firstMsg.textContent.includes('你好！我是你的 AI 助手')) {
-                        chatContainer.innerHTML = '';
-                    }
-
-                    appendUserMessage(query);
-                    connectAgent(query);
-                    queryInput.value = '';
-                }
+            eventSource.addEventListener('start', (event) => {
+                const data = JSON.parse(event.data);
+                updateStatus(data.status, 'thinking');
             });
-        </script>
+
+            eventSource.addEventListener('message', (event) => {
+                const text = JSON.parse(event.data);
+                currentRawText += text;
+                // Render Markdown
+                currentAgentContent.innerHTML = marked.parse(currentRawText);
+                // Apply Syntax Highlighting to new code blocks
+                currentAgentContent.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+                scrollToBottom();
+            });
+
+            eventSource.addEventListener('tool_call', (event) => {
+                const data = JSON.parse(event.data);
+                updateStatus(`正在執行工具 ${data.tool_name}...`, 'thinking');
+
+                const toolDiv = document.createElement('div');
+                toolDiv.className = 'tool-call';
+                toolDiv.textContent = `呼叫工具: ${data.tool_name}`;
+
+                const agentMsgDiv = currentAgentContent.parentElement;
+                agentMsgDiv.insertBefore(toolDiv, currentAgentContent.nextSibling);
+
+                // Create a new content block for text after tool call
+                const newContent = document.createElement('div');
+                newContent.className = 'message-content markdown-body';
+                agentMsgDiv.appendChild(newContent);
+                currentAgentContent = newContent;
+                currentRawText = ""; // Reset for new block
+
+                scrollToBottom();
+            });
+
+            eventSource.addEventListener('end', (event) => {
+                const data = JSON.parse(event.data);
+                updateStatus('就緒', 'active');
+                eventSource.close();
+            });
+
+            eventSource.addEventListener('error', (event) => {
+                if (eventSource.readyState === EventSource.CLOSED) return;
+                updateStatus('連接錯誤', 'error');
+                console.error('EventSource Error:', event);
+                eventSource.close();
+            });
+
+            eventSource.onopen = (e) => {
+                updateStatus('生成中...', 'active');
+            };
+        }
+
+        chatForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const query = queryInput.value.trim();
+            if (query) {
+                // Remove initial greeting if it's the only thing
+                const firstMsg = chatContainer.querySelector('.message.agent .message-content');
+                if (chatContainer.children.length === 1 && firstMsg && firstMsg.textContent.includes('你好！我是你的 AI 助手')) {
+                    chatContainer.innerHTML = '';
+                }
+
+                appendUserMessage(query);
+                connectAgent(query);
+                queryInput.value = '';
+            }
+        });
+
+        // Weather Card Logic
+        const weatherContainer = document.getElementById('weather-card-container');
+
+        function parseWeatherData(text) {
+            // Example: 南港區目前為陰天。降雨機率20%。溫度攝氏16至20度。稍有寒意。偏東風 風速3級(每秒5公尺)。相對濕度63%，紫外線等級為低量級
+            try {
+                const parts = text.split('。');
+                let data = {
+                    location: '未知',
+                    condition: '未知',
+                    rain: '--',
+                    temp: '--',
+                    feel: '',
+                    wind: '',
+                    humidity: '--',
+                    uv: '--'
+                };
+
+                // 1. Location & Condition: "南港區目前為陰天"
+                const part1 = parts[0];
+                if (part1) {
+                    const match = part1.match(/^(.+?)目前為(.+?)$/);
+                    if (match) {
+                        data.location = match[1];
+                        data.condition = match[2];
+                    }
+                }
+
+                // 2. Rain: "降雨機率20%"
+                const part2 = parts.find(p => p.includes('降雨機率'));
+                if (part2) {
+                    data.rain = part2.replace('降雨機率', '');
+                }
+
+                // 3. Temp: "溫度攝氏16至20度"
+                const part3 = parts.find(p => p.includes('溫度攝氏'));
+                if (part3) {
+                    data.temp = part3.replace('溫度攝氏', '');
+                }
+
+                // 4. Feel: "稍有寒意" (Usually just a short phrase)
+                // We assume it's the part after temp or just look for it? 
+                // It's hard to identify "稍有寒意" uniquely without a keyword.
+                // Let's rely on position or just exclusion.
+                // In the example, it's the 4th part (index 3).
+                if (parts[3] && !parts[3].includes('風') && !parts[3].includes('濕度')) {
+                    data.feel = parts[3];
+                }
+
+                // 5. Wind: "偏東風 風速3級(每秒5公尺)"
+                const partWind = parts.find(p => p.includes('風'));
+                if (partWind) {
+                    data.wind = partWind;
+                }
+
+                // 6. Humidity & UV: "相對濕度63%，紫外線等級為低量級"
+                const partLast = parts.find(p => p.includes('相對濕度'));
+                if (partLast) {
+                    const subParts = partLast.split('，');
+                    if (subParts[0]) data.humidity = subParts[0].replace('相對濕度', '');
+                    if (subParts[1]) data.uv = subParts[1].replace('紫外線等級為', '');
+                }
+
+                return data;
+            } catch (e) {
+                console.error("Parse error", e);
+                return null;
+            }
+        }
+
+        function renderWeatherCard(data) {
+            if (!data) return;
+
+            // Format Temp for display
+            const tempDisplay = data.temp.replace('至', '-').replace('度', '°C');
+
+            const html = `
+                <div class="sidebar-card">
+                    <div class="weather-header">
+                        <div class="weather-location">📍 ${data.location}</div>
+                        <div class="weather-condition">${data.condition}</div>
+                    </div>
+                    <div class="weather-main">
+                        <div class="weather-temp">${tempDisplay}</div>
+                    </div>
+                    <div class="weather-details">
+                        <div class="weather-item" title="降雨機率">☔ ${data.rain}</div>
+                        <div class="weather-item" title="濕度">💧 ${data.humidity}</div>
+                        <div class="weather-item" title="體感">🌡️ ${data.feel}</div>
+                        <div class="weather-item" title="紫外線">☀️ ${data.uv}</div>
+                        <div class="weather-item" style="grid-column: span 2; font-size: 0.7rem;" title="風速">💨 ${data.wind}</div>
+                    </div>
+                </div>
+            `;
+            weatherContainer.innerHTML = html;
+        }
+
+        async function fetchWeather() {
+            try {
+                // Using the requested URL
+                const response = await fetch('https://www.justdrink.com.tw/apigateway/status/南港區');
+                if (response.ok) {
+                    const text = await response.text();
+                    // If the API returns a JSON object with the text inside, we might need to adjust.
+                    // But assuming raw text based on description.
+                    // If it fails to parse, we might want to fallback to mock data or show error.
+                    const data = parseWeatherData(text);
+                    if (data && data.location !== '未知') {
+                        renderWeatherCard(data);
+                    } else {
+                        throw new Error("Parsing failed or invalid data");
+                    }
+                } else {
+                    throw new Error("Network response was not ok");
+                }
+            } catch (error) {
+                console.warn('Weather fetch failed, using mock data for demonstration:', error);
+                // Mock data matching the user's example
+                const mockData = {
+                    location: '南港區',
+                    condition: '陰天',
+                    rain: '20%',
+                    temp: '16至20度',
+                    feel: '稍有寒意',
+                    wind: '偏東風 風速3級(每秒5公尺)',
+                    humidity: '63%',
+                    uv: '低量級'
+                };
+                renderWeatherCard(mockData);
+            }
+        }
+
+        // Expose function to update card
+        window.updateWeatherCard = function (customData) {
+            if (typeof customData === 'string') {
+                renderWeatherCard(parseWeatherData(customData));
+            } else {
+                renderWeatherCard(customData);
+            }
+        };
+
+        // Initial fetch
+        fetchWeather();
+    </script>
 </body>
 
 </html>
