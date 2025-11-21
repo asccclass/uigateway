@@ -1,172 +1,172 @@
 package main
 
 import (
-    "os"
 	"fmt"
+	"os"
 	"strings"
 )
 
 // 通用的 LLM 請求結構
 // 生成選項結構
 type Options struct {
-   Temperature      float64 `json:"temperature,omitempty"`
-   TopP             float64 `json:"top_p,omitempty"`
-   TopK             int     `json:"top_k,omitempty"`
-   NumPredict       int     `json:"num_predict,omitempty"`
-   NumKeep          int     `json:"num_keep,omitempty"`
-   Seed             int     `json:"seed,omitempty"`
-   FrequencyPenalty float64 `json:"frequency_penalty,omitempty"`
-   PresencePenalty  float64 `json:"presence_penalty,omitempty"`
-   Mirostat         int     `json:"mirostat,omitempty"`
-   MirostatEta      float64 `json:"mirostat_eta,omitempty"`
-   MirostatTau      float64 `json:"mirostat_tau,omitempty"`
-   Stop             string  `json:"stop,omitempty"`
+	Temperature      float64 `json:"temperature,omitempty"`
+	TopP             float64 `json:"top_p,omitempty"`
+	TopK             int     `json:"top_k,omitempty"`
+	NumPredict       int     `json:"num_predict,omitempty"`
+	NumKeep          int     `json:"num_keep,omitempty"`
+	Seed             int     `json:"seed,omitempty"`
+	FrequencyPenalty float64 `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float64 `json:"presence_penalty,omitempty"`
+	Mirostat         int     `json:"mirostat,omitempty"`
+	MirostatEta      float64 `json:"mirostat_eta,omitempty"`
+	MirostatTau      float64 `json:"mirostat_tau,omitempty"`
+	Stop             string  `json:"stop,omitempty"`
 }
 
 type GenerateRequest struct {
-   Model    string	`json:"model"`
-   Messages []Message `json:"messages"`
-   System   string	`json:"system,omitempty"`
-   Format   string	`json:"format,omitempty"`
-   Stream   bool	`json:"stream"`
-   Options  Options	`json:"options,omitempty"`
-   Images   []string	`json:"images,omitempty"`
-   Context  []int	`json:"context,omitempty"`
-   Template string	`json:"template,omitempty"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+	System   string    `json:"system,omitempty"`
+	Format   string    `json:"format,omitempty"`
+	Stream   bool      `json:"stream"`
+	Options  Options   `json:"options,omitempty"`
+	Images   []string  `json:"images,omitempty"`
+	Context  []int     `json:"context,omitempty"`
+	Template string    `json:"template,omitempty"`
 }
 
 // LLMProviderClient 介面：一個虛擬的 LLM 客戶端介面，用於抽象化不同的 LLM SDK
 type LLMProviderClient interface {
 	LLMName() string
-    GetURL() string
-    GetModel() string
-    GetSystemPrompt() string
-    GetModels() ([]Model, error) 
-    Send2LLM(string, bool)(string, error)
-    StreamGenerate(string, string) (<-chan *LLMChunk, error)  // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
+	GetURL() string
+	GetModel() string
+	GetSystemPrompt() string
+	GetModels() ([]Model, error)
+	Send2LLM(string, bool) (string, error)
+	StreamGenerate(string, string) (<-chan *LLMChunk, error) // StreamGenerate 接受 Prompt 和 Tools，返回一個輸出串流 Channel
 }
 
 // LLM 服務的客戶端 (例如：*openai.Client, *genai.Client, 或統一的 SDK)
 type CustomChatAgent struct {
-	LLMClient   LLMProviderClient 
-	SystemPrompt string // 定義 Agent 個性和規則的 System Prompt
-	Tools       map[string]Tool // 儲存所有可用的工具，以 Name 為 Key
+	LLMClient    LLMProviderClient
+	SystemPrompt string          // 定義 Agent 個性和規則的 System Prompt
+	Tools        map[string]Tool // 儲存所有可用的工具，以 Name 為 Key
 }
 
 // executeTool 根據 ToolCall 執行對應的工具，並返回 ToolResult
-func(app *CustomChatAgent) executeTool(toolCall *ToolCall) (*ToolResult, error) {
-    tool, ok := app.Tools[toolCall.Name]   // 1. 查找工具：從 Agent 的 Tools 映射中找到具體的 Tool 實例
-    if !ok {        
-       return nil, fmt.Errorf("tool %s not found", toolCall.Name)  // 如果找不到工具，返回錯誤
-    }    
-    return tool.Execute(toolCall.Args)   // 2. 執行工具：呼叫 Tool 介面的 Execute 方法
-} 
+func (app *CustomChatAgent) executeTool(toolCall *ToolCall) (*ToolResult, error) {
+	tool, ok := app.Tools[toolCall.Name] // 1. 查找工具：從 Agent 的 Tools 映射中找到具體的 Tool 實例
+	if !ok {
+		return nil, fmt.Errorf("tool %s not found", toolCall.Name) // 如果找不到工具，返回錯誤
+	}
+	return tool.Execute(toolCall.Args) // 2. 執行工具：呼叫 Tool 介面的 Execute 方法
+}
 
 func (app *CustomChatAgent) Name() string { return app.LLMClient.LLMName() }
 
 // getAvailableTools 解決 undefined: a.getAvailableTools
 func (app *CustomChatAgent) getAvailableTools() []Tool {
-    tools := make([]Tool, 0, len(app.Tools))
-    for _, tool := range app.Tools {
-        tools = append(tools, tool)
-    }
-    return tools
+	tools := make([]Tool, 0, len(app.Tools))
+	for _, tool := range app.Tools {
+		tools = append(tools, tool)
+	}
+	return tools
 }
 
 // ProcessStream Agent 核心邏輯
-func (a *CustomChatAgent) ProcessStream(userPrompt string, outputChannel chan *StreamChunk) (error) {
-   defer close(outputChannel)  // 作用是關閉 (close) 一個 channel。channel 被關閉，就不能再向其發送資料，否則會導致 panic
-	
-   maxIterations := 5 // 最大迭代次數，防止無限循環
-   fullPrompt := userPrompt
-   if a.SystemPrompt != "" {
-      fullPrompt = fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, userPrompt)
-   }
-    
-   // 1. 發送開始事件
-   outputChannel <- &StreamChunk{
-      Type: "start",
-      Data: map[string]string{"status": "thinking"},
-   }
+func (a *CustomChatAgent) ProcessStream(userPrompt string, outputChannel chan *StreamChunk) error {
+	defer close(outputChannel) // 作用是關閉 (close) 一個 channel。channel 被關閉，就不能再向其發送資料，否則會導致 panic
 
-   for currentIteration := 0; currentIteration < maxIterations; currentIteration++ {
-        llmStream, err := a.LLMClient.StreamGenerate(fullPrompt, userPrompt)  // 呼叫 LLM 串流
-        if err != nil {
-           outputChannel <- &StreamChunk{Type: "error", Data: err.Error()}
-           return fmt.Errorf("LLM stream error: %w", err)
-        }
-        var toolCall *ToolCall
-        var textOutput strings.Builder // 僅用於單輪推理的文字緩衝
+	maxIterations := 5 // 最大迭代次數，防止無限循環
+	fullPrompt := userPrompt
+	if a.SystemPrompt != "" {
+		fullPrompt = fmt.Sprintf("%s\nUser Query: %s", a.SystemPrompt, userPrompt)
+	}
 
-        for chunk := range llmStream {
-            if chunk.Text != "" {
-                textOutput.WriteString(chunk.Text)
-                outputChannel <- &StreamChunk{Type: "message", Data: chunk.Text}
-            }            
-            if chunk.ToolCall != nil {
-                toolCall = chunk.ToolCall
-                break // LLM 決定呼叫工具，中斷文字輸出
-            }
-        }
-        // 處理工具呼叫
-        if toolCall != nil {
-            currentIteration++            
-            outputChannel <- &StreamChunk{   // 通知前端 Agent 正在呼叫工具
-                Type: "tool_call",
-                Data: map[string]string{"tool_name": toolCall.Name, "status": "executing"},
-            }
-            // 執行工具
-            toolResult, err := a.executeTool(toolCall)
-            if err != nil {  // 將工具執行錯誤回報給 LLM                
-               toolResult = &ToolResult{Observation: fmt.Sprintf("Tool execution failed: %s", err.Error())}
-            }            
-            // 將工具執行結果追加到 Prompt 中，進行下一輪推理 (Re-prompting)
-            toolObservation := fmt.Sprintf("\n\nObservation for tool %s: %s\n\n", toolCall.Name, toolResult.Observation)
-            fullPrompt += toolObservation
-            continue   // 繼續迴圈 (進行下一輪 LLM 呼叫)
-        }
-        // 如果沒有工具呼叫，且有文字輸出，則認為回應完成 || 達到最大輪次，強制結束
-        if textOutput.Len() > 0  || currentIteration == maxIterations-1 {
-            break 
-        }
-    }
-    // 串流結束
+	// 1. 發送開始事件
 	outputChannel <- &StreamChunk{
-        Type: "end",
-        Data: map[string]string{"status": "complete"},
-    }
+		Type: "start",
+		Data: map[string]string{"status": "thinking"},
+	}
+
+	for currentIteration := 0; currentIteration < maxIterations; currentIteration++ {
+		llmStream, err := a.LLMClient.StreamGenerate(fullPrompt, userPrompt) // 呼叫 LLM 串流
+		if err != nil {
+			outputChannel <- &StreamChunk{Type: "error", Data: err.Error()}
+			return fmt.Errorf("LLM stream error: %w", err)
+		}
+		var toolCall *ToolCall
+		var textOutput strings.Builder // 僅用於單輪推理的文字緩衝
+
+		for chunk := range llmStream {
+			if chunk.Text != "" {
+				textOutput.WriteString(chunk.Text)
+				outputChannel <- &StreamChunk{Type: "message", Data: chunk.Text}
+			}
+			if chunk.ToolCall != nil {
+				toolCall = chunk.ToolCall
+				break // LLM 決定呼叫工具，中斷文字輸出
+			}
+		}
+		// 處理工具呼叫
+		if toolCall != nil {
+			currentIteration++
+			outputChannel <- &StreamChunk{ // 通知前端 Agent 正在呼叫工具
+				Type: "tool_call",
+				Data: map[string]string{"tool_name": toolCall.Name, "status": "executing"},
+			}
+			// 執行工具
+			toolResult, err := a.executeTool(toolCall)
+			if err != nil { // 將工具執行錯誤回報給 LLM
+				toolResult = &ToolResult{Observation: fmt.Sprintf("Tool execution failed: %s", err.Error())}
+			}
+			// 將工具執行結果追加到 Prompt 中，進行下一輪推理 (Re-prompting)
+			toolObservation := fmt.Sprintf("\n\nObservation for tool %s: %s\n\n", toolCall.Name, toolResult.Observation)
+			fullPrompt += toolObservation
+			continue // 繼續迴圈 (進行下一輪 LLM 呼叫)
+		}
+		// 如果沒有工具呼叫，且有文字輸出，則認為回應完成 || 達到最大輪次，強制結束
+		if textOutput.Len() > 0 || currentIteration == maxIterations-1 {
+			break
+		}
+	}
+	// 串流結束
+	outputChannel <- &StreamChunk{
+		Type: "end",
+		Data: map[string]string{"status": "complete"},
+	}
 	return nil
 }
 
-func NewLLMClient(llmName string) (LLMProviderClient) {
+func NewLLMClient(llmName string) LLMProviderClient {
 	switch strings.ToLower(llmName) {
 	case "ollama":
-        url := os.Getenv("OllamaUrl")
-        if url == "" {
-            return nil
-        }   
-        olm := &Ollama{
-            Name: llmName, 
-            URL: strings.TrimSuffix(url, "/"),  // 確保URL不以斜杠結尾
-            Model: "gpt-oss:20b",
-            SystemPrompt: "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。",
-       }
+		url := os.Getenv("OllamaUrl")
+		if url == "" {
+			return nil
+		}
+		olm := &Ollama{
+			Name:         llmName,
+			URL:          strings.TrimSuffix(url, "/"), // 確保URL不以斜杠結尾
+			Model:        "gpt-oss:20b",
+			SystemPrompt: "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。",
+		}
 		return olm
 	}
 	return nil
 }
 
 // 建立並返回一個新的 Agent 實例
-func NewAgent(llmName string, systemPrompt string) (*CustomChatAgent, error) {   
-   llmClient := NewLLMClient(llmName)   // 設定使用的LLM服務
-   if llmClient == nil {
-	   fmt.Println("Failed to create LLM client")
-	   return nil, fmt.Errorf("failed to create LLM client")
-   }
-   // 註冊 Agent
-   return &CustomChatAgent{
-        LLMClient: llmClient, // 使用指定的 LLM 客戶端
-        SystemPrompt: systemPrompt,
-        Tools: map[string]Tool{},
-   }, nil
+func NewAgent(llmName string, systemPrompt string) (*CustomChatAgent, error) {
+	llmClient := NewLLMClient(llmName) // 設定使用的LLM服務
+	if llmClient == nil {
+		fmt.Println("Failed to create LLM client")
+		return nil, fmt.Errorf("failed to create LLM client")
+	}
+	// 註冊 Agent
+	return &CustomChatAgent{
+		LLMClient:    llmClient, // 使用指定的 LLM 客戶端
+		SystemPrompt: systemPrompt,
+		Tools:        map[string]Tool{},
+	}, nil
 }

@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI IDE</title>
+    <title>ASAIAssistant</title>
+    <link rel="icon" href="favicon.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -121,6 +122,14 @@
         .header-title {
             font-weight: 500;
             color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-logo {
+            height: 24px;
+            width: auto;
         }
 
         #status-indicator {
@@ -402,7 +411,10 @@
 
     <div id="main-content">
         <header>
-            <div class="header-title">New Chat</div>
+            <div class="header-title">
+                <img src="logo.png" alt="Logo" class="header-logo">
+                ASAIAssistant
+            </div>
             <div id="status-indicator">
                 <div class="status-dot" id="status-dot"></div>
                 <span id="status-text">就緒</span>
