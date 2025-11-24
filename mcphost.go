@@ -71,14 +71,13 @@ func(srv *MCPServer) SearchTool(action string)(*ToolDesc, error) {
 
 // 連接到MCP Server並進行能力協商，只執行一次
 func(h *MCPHost) AddCapabilities(serviceName, endpoint string) (error) {
-	// 建立HTTP客戶端，設定逾時時間
-	client := &http.Client{
+	client := &http.Client{  // 建立HTTP客戶端，設定逾時時間
 		Timeout: 10 * time.Second,
 	}
 	// 發送GET請求
 	resp, err := client.Get(endpoint)
 	if err != nil {
-		return fmt.Errorf("HTTP請求失敗: %v", err)
+	   return fmt.Errorf("HTTP請求失敗: %v", err)
 	}
 	defer resp.Body.Close()
 	// 檢查HTTP狀態碼
@@ -93,7 +92,7 @@ func(h *MCPHost) AddCapabilities(serviceName, endpoint string) (error) {
 	// 解析JSON
 	var server MCPServer
 	if err := json.Unmarshal(body, &server); err != nil {
-		return fmt.Errorf("JSON解析失敗: %v", err)
+	   return fmt.Errorf("JSON解析失敗: %v", err)
 	}
 	h.ConnectedServers[serviceName] = &server
 	fmt.Printf("成功連接到MCP Server: %s，獲取到%d個工具\n", serviceName, len(server.Capabilities.Tools))

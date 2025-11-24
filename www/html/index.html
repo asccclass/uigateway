@@ -285,9 +285,35 @@
             /* Align avatar to top */
         }
 
-        .message.user .avatar {
-            display: none;
-            /* No avatar for user in standard LINE */
+        .message.user .avatar-container {
+            margin-left: 5px;
+            margin-right: 0;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 45px;
+            height: 45px;
+            flex-shrink: 0;
+            margin-right: 5px;
+        }
+
+        .avatar-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #ccc;
+        }
+
+        .avatar-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
         }
 
         /* Timestamp */
@@ -630,6 +656,10 @@
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message user';
             msgDiv.innerHTML = `
+            <div class="avatar-container">
+                <img src="images/jiiChat04.png" class="avatar-frame">
+                <div class="avatar-base"></div> 
+            </div>
             <div class="timestamp">${getTimestamp()}</div>
             <div class="message-content">${escapeHtml(message)}</div>
         `;
@@ -776,10 +806,6 @@
                 }
 
                 // 4. Feel: "稍有寒意" (Usually just a short phrase)
-                // We assume it's the part after temp or just look for it? 
-                // It's hard to identify "稍有寒意" uniquely without a keyword.
-                // Let's rely on position or just exclusion.
-                // In the example, it's the 4th part (index 3).
                 if (parts[3] && !parts[3].includes('風') && !parts[3].includes('濕度')) {
                     data.feel = parts[3];
                 }
@@ -838,9 +864,6 @@
                 const response = await fetch('https://www.justdrink.com.tw/apigateway/status/南港區');
                 if (response.ok) {
                     const text = await response.text();
-                    // If the API returns a JSON object with the text inside, we might need to adjust.
-                    // But assuming raw text based on description.
-                    // If it fails to parse, we might want to fallback to mock data or show error.
                     const data = parseWeatherData(text);
                     if (data && data.location !== '未知') {
                         renderWeatherCard(data);
