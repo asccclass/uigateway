@@ -393,6 +393,201 @@
             padding: 14px 18px;
             border-radius: 8px;
             font-size: 1rem;
+        }
+
+        /* Chat Area - LINE Style */
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+            background-color: #9bb7d4;
+            /* LINE background color */
+        }
+
+        .message {
+            max-width: 80%;
+            width: fit-content;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease-out;
+            display: flex;
+            align-items: flex-end;
+            /* Align timestamp at bottom */
+            gap: 6px;
+            position: relative;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+            /* Timestamp on left for user */
+        }
+
+        .message.agent {
+            align-self: flex-start;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Message Bubbles */
+        .message-content {
+            padding: 10px 14px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            position: relative;
+            word-wrap: break-word;
+            max-width: 100%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.user .message-content {
+            background-color: #92D050;
+            /* LINE User Green */
+            color: #000000;
+            border-top-right-radius: 0;
+        }
+
+        .message.agent .message-content {
+            background-color: #FFFFFF;
+            color: #000000;
+            border-top-left-radius: 0;
+        }
+
+        /* Tails */
+        .message.user .message-content::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -8px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 0 15px 15px;
+            border-color: transparent transparent transparent #92D050;
+        }
+
+        .message.agent .message-content::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -8px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 15px 15px 0;
+            border-color: transparent #FFFFFF transparent transparent;
+        }
+
+        /* Avatar */
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            margin-right: 5px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            align-self: flex-start;
+            /* Align avatar to top */
+        }
+
+        .message.user .avatar-container {
+            margin-left: 5px;
+            margin-right: 0;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 45px;
+            height: 45px;
+            flex-shrink: 0;
+            margin-right: 5px;
+        }
+
+        .avatar-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #ccc;
+        }
+
+        .avatar-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Timestamp */
+        .timestamp {
+            font-size: 0.7rem;
+            color: #ffffff;
+            /* White text on blue bg looks better */
+            margin-bottom: 2px;
+            flex-shrink: 0;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Hide default headers */
+        .message-header {
+            display: none;
+        }
+
+        /* Tool Call Styling */
+        .tool-call {
+            font-size: 0.8rem;
+            color: #555;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 4px 8px;
+            border-radius: 10px;
+            margin: 4px 0;
+            align-self: flex-start;
+            display: inline-block;
+        }
+
+        .tool-call::before {
+            content: "⚡";
+            margin-right: 4px;
+        }
+
+        /* Input Area */
+        #input-area {
+            padding: 20px;
+            background-color: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+        }
+
+        #chat-form {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #query-input {
+            width: 100%;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 1rem;
             font-family: 'Inter', "Microsoft JhengHei", sans-serif;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
@@ -401,6 +596,50 @@
         #query-input:focus {
             border-color: var(--accent-color);
             box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+        }
+
+        #voice-input-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            transition: color 0.2s, transform 0.2s;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #voice-input-btn:hover {
+            color: var(--text-primary);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        #voice-input-btn.listening {
+            color: #f44336;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                transform: translateY(-50%) scale(1);
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+            }
+
+            70% {
+                transform: translateY(-50%) scale(1.1);
+                box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+            }
+
+            100% {
+                transform: translateY(-50%) scale(1);
+                box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+            }
         }
 
         /* Scrollbar */
@@ -625,6 +864,13 @@
         <div id="input-area">
             <form id="chat-form">
                 <input type="text" id="query-input" placeholder="輸入您的問題 (例如：台北天氣如何？)..." autocomplete="off" autofocus>
+                <button type="button" id="voice-input-btn" title="語音輸入">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                        <path
+                            d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                    </svg>
+                </button>
             </form>
         </div>
     </div>
@@ -933,6 +1179,52 @@
 
         // Initial fetch
         fetchWeather();
+
+        // Voice Input Logic
+        const voiceBtn = document.getElementById('voice-input-btn');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'zh-TW'; // Default to Traditional Chinese
+            recognition.interimResults = false;
+
+            recognition.onstart = function () {
+                voiceBtn.classList.add('listening');
+                queryInput.placeholder = "請說話...";
+            };
+
+            recognition.onend = function () {
+                voiceBtn.classList.remove('listening');
+                queryInput.placeholder = "輸入您的問題 (例如：台北天氣如何？)...";
+            };
+
+            recognition.onresult = function (event) {
+                const transcript = event.results[0][0].transcript;
+                queryInput.value = transcript;
+                // Optional: Auto-submit
+                // chatForm.dispatchEvent(new Event('submit'));
+                queryInput.focus();
+            };
+
+            recognition.onerror = function (event) {
+                console.error('Speech recognition error', event.error);
+                voiceBtn.classList.remove('listening');
+                queryInput.placeholder = "語音輸入錯誤，請重試";
+            };
+
+            voiceBtn.addEventListener('click', function () {
+                if (voiceBtn.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+        } else {
+            voiceBtn.style.display = 'none';
+            console.warn('Web Speech API not supported in this browser.');
+        }
     </script>
 </body>
 
