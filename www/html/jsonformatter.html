@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RWD JSON Formatter (Local)</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border-color: #d1d5db;
+            --text-color: #333;
+            --key-color: #881391;
+            --string-color: #268bd2;
+            --number-color: #d33682;
+            --bool-color: #b58900;
+            --error-bg: #fee2e2;
+            --error-text: #b91c1c;
+            --primary-color: #2563eb;
+            --info-bg: #eff6ff;
+            --info-border: #3b82f6;
+            --info-text: #1e3a8a;
+        }
+
+        /* 基礎設定 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header 區域調整 */
+        header {
+            margin-bottom: 10px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            /* 標題靠左，按鈕靠右 */
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .badge {
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            vertical-align: middle;
+        }
+
+        /* 回首頁按鈕樣式 */
+        .home-btn {
+            text-decoration: none;
+            color: #4b5563;
+            background: #fff;
+            border: 1px solid #d1d5db;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            /* 圖標與文字間距 */
+        }
+
+        .home-btn:hover {
+            background-color: #f3f4f6;
+            color: #111;
+            border-color: #9ca3af;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 功能說明區塊 */
+        .features-box {
+            background-color: var(--info-bg);
+            border-left: 4px solid var(--info-border);
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.9rem;
+            color: var(--info-text);
+            flex-shrink: 0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .features-box h3 {
+            margin: 0 0 5px 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .features-box ul {
+            margin: 0;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+
+        .features-box li {
+            margin-bottom: 2px;
+            line-height: 1.4;
+        }
+
+        /* 按鈕區塊 */
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            flex: 0 0 auto;
+        }
+
+        button:hover {
+            background-color: #e5e7eb;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        button.primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* 主容器 */
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        /* 左右面板 */
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            min-width: 0;
+        }
+
+        .panel-header {
+            padding: 10px 15px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            color: #6b7280;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 輸入與輸出區域 */
+        textarea,
+        #output {
+            flex: 1;
+            border: none;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            outline: none;
+            overflow: auto;
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        #output {
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+        }
+
+        /* Syntax Highlighting */
+        .json-key {
+            color: var(--key-color);
+        }
+
+        .json-string {
+            color: var(--string-color);
+        }
+
+        .json-number {
+            color: var(--number-color);
+        }
+
+        .json-boolean {
+            color: var(--bool-color);
+        }
+
+        .json-null {
+            color: var(--bool-color);
+        }
+
+        /* Error Message */
+        #error-msg {
+            display: none;
+            background: var(--error-bg);
+            color: var(--error-text);
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            word-break: break-word;
+            flex-shrink: 0;
+        }
+
+        /* Copy Toast */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 4px;
+            padding: 12px;
+            position: fixed;
+            z-index: 999;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+
+        /* =========================================
+           RWD 響應式設計
+           ========================================= */
+        @media screen and (max-width: 768px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .container {
+                flex-direction: column;
+                height: auto;
+                flex: none;
+            }
+
+            .panel {
+                height: 50vh;
+                min-height: 300px;
+            }
+
+            .controls {
+                justify-content: stretch;
+            }
+
+            button {
+                flex: 1;
+                text-align: center;
+                padding: 12px 8px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
+            .features-box li {
+                margin-bottom: 4px;
+            }
+
+            /* 手機版調整 Header 順序或佈局，確保按鈕好按 */
+            header {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>JSON Formatter <span class="badge">Local & Secure</span></h1>
+        <a href="index.html" class="home-btn">🏠 回首頁</a>
+    </header>
+
+    <div class="features-box">
+        <h3>核心功能特點：</h3>
+        <ul>
+            <li><strong>完全離線</strong>：所有邏輯都在 script 標籤內，無外部請求。</li>
+            <li><strong>語法高亮 (Syntax Highlighting)</strong>：自動將 Key、String、Number、Boolean 上色。</li>
+            <li><strong>錯誤偵測</strong>：如果 JSON 格式錯誤，會顯示具體的錯誤訊息。</li>
+            <li><strong>格式化與壓縮</strong>：支援排版 (Prettify) 與 壓縮 (Minify)。</li>
+        </ul>
+    </div>
+
+    <div id="error-msg"></div>
+
+    <div class="controls">
+        <button class="primary" onclick="formatJSON(2)">格式化 (2 Space)</button>
+        <button onclick="formatJSON(4)">格式化 (4 Space)</button>
+        <button onclick="minifyJSON()">壓縮 (Minify)</button>
+        <button onclick="copyToClipboard()">複製結果</button>
+        <button onclick="clearAll()" style="color: #ef4444; border-color: #ef4444;">清空</button>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">
+                <span>Input</span>
+                <span style="font-size:0.8em; opacity:0.7">Paste JSON here</span>
+            </div>
+            <textarea id="json-input" placeholder="請在此貼上 JSON..."></textarea>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <span>Output</span>
+                <span id="output-info" style="font-size:0.8em; opacity:0.7">Result</span>
+            </div>
+            <pre id="output"></pre>
+        </div>
+    </div>
+
+    <div id="toast">已複製到剪貼簿！</div>
+
+    <script>
+        const inputArea = document.getElementById('json-input');
+        const outputArea = document.getElementById('output');
+        const errorMsg = document.getElementById('error-msg');
+        const toast = document.getElementById('toast');
+        const outputInfo = document.getElementById('output-info');
+
+        inputArea.focus();
+
+        function getRawJSON() {
+            const raw = inputArea.value.trim();
+            if (!raw) return null;
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                showError(e.message);
+                return false;
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = `❌ Error: ${msg}`;
+            errorMsg.style.display = 'block';
+            outputArea.innerHTML = '';
+            outputInfo.textContent = 'Error';
+        }
+
+        function clearError() {
+            errorMsg.style.display = 'none';
+            outputInfo.textContent = 'Result';
+        }
+
+        function formatJSON(space) {
+            clearError();
+            const json = getRawJSON();
+            if (json === false) return;
+            if (json === null) return;
+
+            const jsonString = JSON.stringify(json, null, space);
+            outputArea.innerHTML = syntaxHighlight(jsonString);
+            outputInfo.textContent = 'Formatted';
+        }
+
+        function minifyJSON() {
+            clearError();
+            const json = getRawJSON();
+            if (json === false) return;
+            if (json === null) return;
+
+            const jsonString = JSON.stringify(json);
+            outputArea.textContent = jsonString;
+            outputInfo.textContent = 'Minified';
+        }
+
+        function clearAll() {
+            inputArea.value = '';
+            outputArea.innerHTML = '';
+            clearError();
+            inputArea.focus();
+        }
+
+        function syntaxHighlight(json) {
+            if (typeof json != 'string') {
+                json = JSON.stringify(json, undefined, 2);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        function copyToClipboard() {
+            const text = outputArea.textContent;
+            if (!text) return;
+
+            navigator.clipboard.writeText(text).then(() => {
+                toast.className = "show";
+                setTimeout(function () { toast.className = toast.className.replace("show", ""); }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert("複製失敗，請手動選取複製");
+            });
+        }
+
+        inputArea.addEventListener('input', clearError);
+    </script>
+
+</body>
+
+</html>
