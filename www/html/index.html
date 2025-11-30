@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -164,6 +164,31 @@
             fill: currentColor;
         }
 
+        .header-icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary);
+            transition: color 0.2s;
+            padding: 0;
+        }
+
+        .header-icon-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .header-icon-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .header-icon-btn.active {
+            color: var(--accent-color);
+        }
+
         .status-dot {
             width: 8px;
             height: 8px;
@@ -198,201 +223,6 @@
             100% {
                 opacity: 1;
             }
-        }
-
-        /* Chat Area - LINE Style */
-        #chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            scroll-behavior: smooth;
-            background-color: #9bb7d4;
-            /* LINE background color */
-        }
-
-        .message {
-            max-width: 80%;
-            width: fit-content;
-            line-height: 1.5;
-            animation: fadeIn 0.3s ease-out;
-            display: flex;
-            align-items: flex-end;
-            /* Align timestamp at bottom */
-            gap: 6px;
-            position: relative;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-            /* Timestamp on left for user */
-        }
-
-        .message.agent {
-            align-self: flex-start;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Message Bubbles */
-        .message-content {
-            padding: 10px 14px;
-            border-radius: 20px;
-            font-size: 0.95rem;
-            position: relative;
-            word-wrap: break-word;
-            max-width: 100%;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .message.user .message-content {
-            background-color: #92D050;
-            /* LINE User Green */
-            color: #000000;
-            border-top-right-radius: 0;
-        }
-
-        .message.agent .message-content {
-            background-color: #FFFFFF;
-            color: #000000;
-            border-top-left-radius: 0;
-        }
-
-        /* Tails */
-        .message.user .message-content::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: -8px;
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 0 0 15px 15px;
-            border-color: transparent transparent transparent #92D050;
-        }
-
-        .message.agent .message-content::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -8px;
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 0 15px 15px 0;
-            border-color: transparent #FFFFFF transparent transparent;
-        }
-
-        /* Avatar */
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            flex-shrink: 0;
-            margin-right: 5px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            align-self: flex-start;
-            /* Align avatar to top */
-        }
-
-        .message.user .avatar-container {
-            margin-left: 5px;
-            margin-right: 0;
-        }
-
-        .avatar-container {
-            position: relative;
-            width: 45px;
-            height: 45px;
-            flex-shrink: 0;
-            margin-right: 5px;
-        }
-
-        .avatar-base {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-            background-color: #ccc;
-        }
-
-        .avatar-frame {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Timestamp */
-        .timestamp {
-            font-size: 0.7rem;
-            color: #ffffff;
-            /* White text on blue bg looks better */
-            margin-bottom: 2px;
-            flex-shrink: 0;
-            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Hide default headers */
-        .message-header {
-            display: none;
-        }
-
-        /* Tool Call Styling */
-        .tool-call {
-            font-size: 0.8rem;
-            color: #555;
-            background: rgba(255, 255, 255, 0.5);
-            padding: 4px 8px;
-            border-radius: 10px;
-            margin: 4px 0;
-            align-self: flex-start;
-            display: inline-block;
-        }
-
-        .tool-call::before {
-            content: "⚡";
-            margin-right: 4px;
-        }
-
-        /* Input Area */
-        #input-area {
-            padding: 20px;
-            background-color: var(--bg-color);
-            border-top: 1px solid var(--border-color);
-        }
-
-        #chat-form {
-            max-width: 800px;
-            margin: 0 auto;
-            position: relative;
-        }
-
-        #query-input {
-            width: 100%;
-            background-color: var(--input-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 14px 18px;
-            border-radius: 8px;
-            font-size: 1rem;
         }
 
         /* Chat Area - LINE Style */
@@ -846,6 +676,13 @@
                             d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M8,12V14H16V12H8M8,16V18H13V16H8Z" />
                     </svg>
                 </a>
+                <button id="sound-toggle-btn" class="header-icon-btn" title="開啟語音朗讀">
+                    <svg viewBox="0 0 24 24" id="sound-icon">
+                        <!-- Mute Icon by default -->
+                        <path
+                            d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z" />
+                    </svg>
+                </button>
                 <div id="status-indicator">
                     <div class="status-dot" id="status-dot"></div>
                     <span id="status-text">就緒</span>
@@ -1019,6 +856,11 @@
                 const data = JSON.parse(event.data);
                 updateStatus('就緒', 'active');
                 eventSource.close();
+
+                // Speak the response if sound is enabled
+                if (isSoundEnabled && currentRawText) {
+                    speakText(currentRawText);
+                }
             });
 
             eventSource.addEventListener('error', (event) => {
@@ -1224,6 +1066,55 @@
         } else {
             voiceBtn.style.display = 'none';
             console.warn('Web Speech API not supported in this browser.');
+        }
+
+        // Text-to-Speech Logic
+        const soundBtn = document.getElementById('sound-toggle-btn');
+        const soundIcon = document.getElementById('sound-icon');
+        let isSoundEnabled = false;
+        const synth = window.speechSynthesis;
+
+        // Icons
+        const iconMute = '<path d="M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z" />';
+        const iconSound = '<path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16.02C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z" />';
+
+        soundBtn.addEventListener('click', () => {
+            isSoundEnabled = !isSoundEnabled;
+            if (isSoundEnabled) {
+                soundBtn.classList.add('active');
+                soundBtn.title = "關閉語音朗讀";
+                soundIcon.innerHTML = iconSound;
+                // Optional: Speak a test phrase
+                // speakText("語音功能已開啟");
+            } else {
+                soundBtn.classList.remove('active');
+                soundBtn.title = "開啟語音朗讀";
+                soundIcon.innerHTML = iconMute;
+                synth.cancel(); // Stop speaking immediately
+            }
+        });
+
+        function speakText(text) {
+            if (!isSoundEnabled) return;
+
+            // Cancel any current speech
+            synth.cancel();
+
+            // Strip markdown/HTML tags for cleaner speech
+            // Simple regex to remove HTML tags
+            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*#`]/g, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'zh-TW'; // Default to Traditional Chinese
+
+            // Select a Chinese voice if available
+            const voices = synth.getVoices();
+            const zhVoice = voices.find(v => v.lang.includes('zh-TW') || v.lang.includes('zh-CN'));
+            if (zhVoice) {
+                utterance.voice = zhVoice;
+            }
+
+            synth.speak(utterance);
         }
     </script>
 </body>
