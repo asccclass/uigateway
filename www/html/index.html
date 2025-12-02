@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -1164,27 +1164,47 @@
             }
         });
 
-        function speakText(text) {
+                async function speakText(text) {
             if (!isSoundEnabled) return;
 
-            // Cancel any current speech
-            synth.cancel();
-
             // Strip markdown/HTML tags for cleaner speech
-            // Simple regex to remove HTML tags
             const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*#`]/g, '');
+            if (!cleanText.trim()) return;
 
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'zh-TW'; // Default to Traditional Chinese
+            try {
+                updateStatus('正在生成語音...', 'thinking');
+                const response = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        input: cleanText,
+                        voice: 'af_heart', 
+                        speed: 1.0
+                    })
+                });
 
-            // Select a Chinese voice if available
-            const voices = synth.getVoices();
-            const zhVoice = voices.find(v => v.lang.includes('zh-TW') || v.lang.includes('zh-CN'));
-            if (zhVoice) {
-                utterance.voice = zhVoice;
+                if (!response.ok) {
+                    throw new Error('TTS request failed');
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                audio.play();
+                updateStatus('正在朗讀...', 'active');
+                
+                // Cleanup
+                audio.onended = () => {
+                    URL.revokeObjectURL(url);
+                    updateStatus('就緒', 'active');
+                };
+
+            } catch (error) {
+                console.error('TTS Error:', error);
+                updateStatus('語音生成失敗', 'error');
             }
-
-            synth.speak(utterance);
         }
     </script>
     <script src="js/calendar.js"></script>
