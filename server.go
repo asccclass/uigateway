@@ -68,11 +68,6 @@ func main() {
 
 	// AI
 	chatService = NewInteractionService() // 服務初始化 (解決 nil pointer dereference)
-	/* // 註冊工具
-	   tools := map[string]Tool{
-	       "get_current_weather": &WeatherTool{},
-	   }*/
-	// prompt := "你是一個樂於助人的助手。如果你看到用戶問及天氣，請務必使用 get_current_weather 工具。"
 	prompt := "你是一個樂於助人的助手"
 	// 註冊 Agent
 	agent, err := NewAgent("ollama", prompt)
