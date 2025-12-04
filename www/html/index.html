@@ -1164,7 +1164,7 @@
             }
         });
 
-                async function speakText(text) {
+        async function speakText(text) {
             if (!isSoundEnabled) return;
 
             // Strip markdown/HTML tags for cleaner speech
@@ -1173,14 +1173,14 @@
 
             try {
                 updateStatus('正在生成語音...', 'thinking');
-                const response = await fetch('/api/tts', {
+                const response = await fetch('http://172.18.124.210:8080/v1/audio/speech', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         input: cleanText,
-                        voice: 'af_heart', 
+                        voice: 'zf_xiaobei',
                         speed: 1.0
                     })
                 });
@@ -1194,7 +1194,7 @@
                 const audio = new Audio(url);
                 audio.play();
                 updateStatus('正在朗讀...', 'active');
-                
+
                 // Cleanup
                 audio.onended = () => {
                     URL.revokeObjectURL(url);
