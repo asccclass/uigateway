@@ -17,7 +17,8 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	staticfileserver.AddRouter(router)
 
 	// App router
-	router.HandleFunc("POST /api/tts", handleTTS)
+	router.HandleFunc("POST /api/tts", SpeakFromWeb) // handleTTS)
+	router.HandleFunc("POST /speak", SpeakFromWeb)
 
 	/*
 	   // App router
