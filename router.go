@@ -5,6 +5,8 @@ import (
 	// "fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	SherryServer "github.com/asccclass/sherryserver"
 )
@@ -20,6 +22,12 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	router.HandleFunc("POST /api/tts", SpeakFromWeb) // handleTTS)
 	router.HandleFunc("POST /speak", SpeakFromWeb)
 	router.HandleFunc("GET /api/weather/{location}", handleWeather)
+
+	// Proxy for MessageHub Socket.io
+	u, _ := url.Parse("http://localhost:9090")
+	proxy := httputil.NewSingleHostReverseProxy(u)
+	router.Handle("/ws/", proxy)
+	router.Handle("/ws", proxy)
 
 	/*
 	   // App router

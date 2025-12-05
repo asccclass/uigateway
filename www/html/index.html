@@ -1210,25 +1210,36 @@
             }
         }
     </script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="js/calendar.js"></script>
     <script>
         // MessageHub Integration
-        const MSG_HUB_URL = 'http://localhost:3000';
-        let socket = null;
+        let ws = null;
 
         function connectMessageHub() {
             try {
-                socket = io(MSG_HUB_URL);
+                const wsUrl = 'ws://localhost:9090/ws';
+                ws = new WebSocket(wsUrl);
 
-                socket.on('connect', () => {
+                ws.onopen = () => {
                     console.log('Connected to MessageHub');
                     updateStatus('已連線 MessageHub', 'active');
-                });
+                };
 
-                socket.on('message', (data) => {
-                    console.log('Received message:', data);
-                    const messageText = typeof data === 'string' ? data : (data.text || JSON.stringify(data));
+                ws.onmessage = (event) => {
+                    console.log('Received message:', event.data);
+                    let messageText = event.data;
+                    try {
+                        const data = JSON.parse(event.data);
+
+                        // Filter out time information
+                        if (data.type === 'time') {
+                            return;
+                        }
+
+                        messageText = data.text || data.message || data.content || JSON.stringify(data);
+                    } catch (e) {
+                        // Not JSON, use raw text
+                    }
 
                     const contentDiv = createAgentMessageBlock();
                     contentDiv.innerHTML = marked.parse(messageText);
@@ -1240,20 +1251,22 @@
                     if (isSoundEnabled) {
                         speakText(messageText);
                     }
-                });
+                };
 
-                socket.on('disconnect', () => {
+                ws.onclose = () => {
                     console.log('Disconnected from MessageHub');
                     updateStatus('MessageHub 斷線', 'error');
-                });
+                    // Optional: Reconnect logic
+                    // setTimeout(connectMessageHub, 3000);
+                };
 
-                socket.on('connect_error', (error) => {
+                ws.onerror = (error) => {
                     console.error('Connection Error:', error);
                     updateStatus('MessageHub 連線錯誤', 'error');
-                });
+                };
 
             } catch (e) {
-                console.error('Socket.io init error:', e);
+                console.error('WebSocket init error:', e);
             }
         }
 
