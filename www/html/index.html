@@ -1210,11 +1210,57 @@
             }
         }
     </script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="js/calendar.js"></script>
     <script>
+        // MessageHub Integration
+        const MSG_HUB_URL = 'http://localhost:3000';
+        let socket = null;
+
+        function connectMessageHub() {
+            try {
+                socket = io(MSG_HUB_URL);
+
+                socket.on('connect', () => {
+                    console.log('Connected to MessageHub');
+                    updateStatus('已連線 MessageHub', 'active');
+                });
+
+                socket.on('message', (data) => {
+                    console.log('Received message:', data);
+                    const messageText = typeof data === 'string' ? data : (data.text || JSON.stringify(data));
+
+                    const contentDiv = createAgentMessageBlock();
+                    contentDiv.innerHTML = marked.parse(messageText);
+                    contentDiv.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                    scrollToBottom();
+
+                    if (isSoundEnabled) {
+                        speakText(messageText);
+                    }
+                });
+
+                socket.on('disconnect', () => {
+                    console.log('Disconnected from MessageHub');
+                    updateStatus('MessageHub 斷線', 'error');
+                });
+
+                socket.on('connect_error', (error) => {
+                    console.error('Connection Error:', error);
+                    updateStatus('MessageHub 連線錯誤', 'error');
+                });
+
+            } catch (e) {
+                console.error('Socket.io init error:', e);
+            }
+        }
+
         // Initialize Calendar
         document.addEventListener('DOMContentLoaded', () => {
             new Calendar('calendar-container');
+            connectMessageHub();
         });
     </script>
 </body>
