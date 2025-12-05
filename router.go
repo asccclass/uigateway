@@ -19,6 +19,7 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	// App router
 	router.HandleFunc("POST /api/tts", SpeakFromWeb) // handleTTS)
 	router.HandleFunc("POST /speak", SpeakFromWeb)
+	router.HandleFunc("GET /api/weather/{location}", handleWeather)
 
 	/*
 	   // App router
@@ -29,6 +30,31 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	   router.Handle("/upload", oauth.Protect(http.HandlerFunc(Upload)))
 	*/
 	return router
+}
+
+func handleWeather(w http.ResponseWriter, r *http.Request) {
+	location := r.PathValue("location")
+	if location == "" {
+		http.Error(w, "Location is required", http.StatusBadRequest)
+		return
+	}
+
+	targetURL := "https://www.justdrink.com.tw/apigateway/status/" + location
+	resp, err := http.Get(targetURL)
+	if err != nil {
+		http.Error(w, "Failed to fetch weather data: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy headers
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy body
+	io.Copy(w, resp.Body)
 }
 
 func handleTTS(w http.ResponseWriter, r *http.Request) {

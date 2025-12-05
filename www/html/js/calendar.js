@@ -14,7 +14,7 @@ class Calendar {
 
     init() {
         this.render();
-        this.addEventListeners();
+
     }
 
     render() {
