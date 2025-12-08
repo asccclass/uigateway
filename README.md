@@ -1,7 +1,6 @@
 # LLM client
 
 
-
 # SPEAK
 ### 前置準備 (Prerequisites)
 Kokoro 模型依賴 espeak-ng 來處理音素 (Phonemes)，在安裝前請確保您的系統已安裝此套件。
@@ -93,4 +92,10 @@ zm_yunjian (雲健)
 zm_yunxi (雲希)
 zm_yunxia (雲夏)
 zm_yunyang (雲揚)
+```
+
+### message hub test
+
+```
+curl "https://ws.justdrink.com.tw/api/send?msg=HelloAll"
 ```

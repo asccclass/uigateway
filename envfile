@@ -31,4 +31,4 @@ stafflistMCPSrvPath=/coursehours/fisa/person/chName/
 stafflistMCPToken=justgps@gmail.com
 
 TTS_API_URL=http://172.18.124.210:8443/speech
-WebSocketUrl=ws://ws.justdrink.com.tw
+WebSocketUrl=wss://ws.justdrink.com.tw/ws
