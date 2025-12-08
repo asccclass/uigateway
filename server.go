@@ -23,6 +23,23 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
+
+	// Update WebSocket URL in index.html if defined in env
+	if wsUrl := os.Getenv("WebSocketUrl"); wsUrl != "" {
+		fmt.Printf("🚀 偵測到 WebSocketUrl 設定: %s，正在更新 Frontend 配置...\n", wsUrl)
+		indexPath := currentDir + "/www/html/index.html"
+		content, err := os.ReadFile(indexPath)
+		if err == nil {
+			newContent := strings.Replace(string(content), "const wsUrl = 'ws://localhost:9090/ws';", fmt.Sprintf("const wsUrl = '%s';", wsUrl), 1)
+			if err := os.WriteFile(indexPath, []byte(newContent), 0644); err != nil {
+				fmt.Printf("❌ 更新 index.html 失敗: %v\n", err)
+			} else {
+				fmt.Println("✅ index.html WebSocket URL 已更新")
+			}
+		} else {
+			fmt.Printf("❌ 讀取 index.html 失敗: %v\n", err)
+		}
+	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "80"
