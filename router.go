@@ -2,21 +2,28 @@
 package main
 
 import (
-	// "fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	SherryServer "github.com/asccclass/sherryserver"
 )
 
-func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
+func NewRouter(srv *SherryServer.Server, documentRoot string, templateRoot string) *http.ServeMux {
 	router := http.NewServeMux()
 
 	// Static File server
-	staticfileserver := SherryServer.StaticFileServer{documentRoot, "index.html"}
-	staticfileserver.AddRouter(router)
+	// staticfileserver := SherryServer.StaticFileServer{documentRoot, "index.html"}
+	// staticfileserver.AddRouter(router)
+
+	// Custom Index Handler
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		handleIndex(w, r, documentRoot, templateRoot)
+	})
 
 	// App router
 	router.HandleFunc("POST /api/tts", SpeakFromWeb) // handleTTS)
@@ -27,7 +34,6 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	u, _ := url.Parse("http://localhost:9090")
 	proxy := httputil.NewSingleHostReverseProxy(u)
 	router.Handle("/ws/", proxy)
-	router.Handle("/ws", proxy)
 
 	/*
 	   // App router
@@ -38,6 +44,35 @@ func NewRouter(srv *SherryServer.Server, documentRoot string) *http.ServeMux {
 	   router.Handle("/upload", oauth.Protect(http.HandlerFunc(Upload)))
 	*/
 	return router
+}
+
+func handleIndex(w http.ResponseWriter, r *http.Request, documentRoot string, templateRoot string) {
+	// If path is not root or index.html, serve file
+	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
+		http.FileServer(http.Dir(documentRoot)).ServeHTTP(w, r)
+		return
+	}
+
+	// Check Env Vars
+	msgAPI := os.Getenv("MESSAGE_API_URL")
+	ttsAPI := os.Getenv("TTS_API_URL")
+
+	data := IndexTemplateData{
+		ShowMessageAPI: msgAPI != "",
+		ShowTTSAPI:     ttsAPI != "",
+		MessageAPIURL:  msgAPI,
+	}
+
+	tmplPath := filepath.Join(templateRoot, "index.tpl")
+	tmpl, err := template.ParseFiles(tmplPath)
+	if err != nil {
+		http.Error(w, "Could not load template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, "Template execution failed: "+err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func handleWeather(w http.ResponseWriter, r *http.Request) {
