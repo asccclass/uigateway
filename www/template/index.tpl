@@ -884,6 +884,10 @@
         </div>
 
         <!-- System Log Card -->
+
+        <div class="sidebar-item" id="toggle-sys-btn">
+            <span>🖥️</span> 系統訊息 (System)
+        </div>
         <div id="system-log-card">
             <div class="system-header">
                 <div class="system-title">系統即時紀錄</div>
@@ -899,10 +903,6 @@
                     <span class="sys-text"># System initialized. Ready to connect.</span>
                 </div>
             </div>
-        </div>
-
-        <div class="sidebar-item" id="toggle-sys-btn">
-            <span>🖥️</span> 系統訊息 (System)
         </div>
         <div class="sidebar-item">
             <span>📝</span> 筆記 (Notes)
@@ -1331,7 +1331,11 @@
 
         function connectMessageHub() {
             try {
+                {{if .MessageAPIURL}}
+                const wsUrl = "{{.MessageAPIURL}}";
+                {{else}}
                 const wsUrl = 'wss://ws.justdrink.com.tw/ws';
+                {{end}}
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
@@ -1340,22 +1344,18 @@
                 };
 
                 ws.onmessage = (event) => {
-                    console.log('Received message:', event.data);
                     let messageText = event.data;
                     try {
                         const data = JSON.parse(event.data);
-
                         // Filter out time information
                         if (data.type === 'time') {
                             return;
                         }
-
                         // Handle System Messages
                         if (data.type === 'system') {
-                            appendSystemLog(data.text || data.message || JSON.stringify(data));
+                            appendSystemLog(data.content || data.message || JSON.stringify(data));
                             return; // Stop processing, do not show in chat
                         }
-
                         messageText = data.text || data.message || data.content || JSON.stringify(data);
                     } catch (e) {
                         // Not JSON, use raw text
@@ -1376,8 +1376,7 @@
                 ws.onclose = () => {
                     console.log('Disconnected from MessageHub');
                     updateStatus('MessageHub 斷線', 'error');
-                    // Optional: Reconnect logic
-                    // setTimeout(connectMessageHub, 3000);
+                    setTimeout(connectMessageHub, 6000);  // Optional: Reconnect logic
                 };
 
                 ws.onerror = (error) => {

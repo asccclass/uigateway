@@ -57,7 +57,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	router := NewRouter(server, documentRoot)
+	router := NewRouter(server, documentRoot, templateRoot)
 	if router == nil {
 		fmt.Println("router return nil")
 		return
