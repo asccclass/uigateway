@@ -825,6 +825,9 @@
         <div class="sidebar-item">
             <span>⚙️</span> 設定 (Settings)
         </div>
+        <div class="sidebar-item" id="clear-chat-btn">
+            <span>🗑️</span> 清除 (Clear)
+        </div>
     </div>
 
     <div id="main-content">
@@ -915,6 +918,13 @@
         const statusText = document.getElementById('status-text');
         const statusDot = document.getElementById('status-dot');
         const chatContainer = document.getElementById('chat-container');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
+
+        if (clearChatBtn) {
+            clearChatBtn.addEventListener('click', () => {
+                chatContainer.innerHTML = '';
+            });
+        }
 
         // RWD Logic
         const menuToggle = document.getElementById('menu-toggle');

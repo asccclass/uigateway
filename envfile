@@ -27,7 +27,7 @@ MCPSrvPath=/mcpsrv/
 MCPToken=justgps@gmail.com
 
 stafflistMCPSrv=https://wteamapi.its.sinica.edu.tw
-stafflistMCPSrvPath=/coursehours/fisa/person/chName/
+stafflistMCPSrvPath=/coursehours/stafflist
 stafflistMCPToken=justgps@gmail.com
 
 TTS_API_URL=http://172.18.124.210:8443/speech

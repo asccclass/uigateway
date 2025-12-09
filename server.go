@@ -74,7 +74,12 @@ func main() {
 
 			go func(part string) {
 				defer wg.Done()
-				endpoint := "https://www.justdrink.com.tw/mcpsrv/capabilities/" + part
+				endpoint := os.Getenv(part + "MCPSrv")
+				if endpoint == "" {
+					endpoint = "https://www.justdrink.com.tw/mcpsrv/capabilities/" + part
+				} else {
+					endpoint = endpoint + os.Getenv("MCPSrvPath") + part
+				}
 				if err := McpHost.AddCapabilities(part, endpoint); err != nil {
 					fmt.Printf("獲取 MCP Server: %s 服務失敗: %s\n", part, err.Error())
 				}
